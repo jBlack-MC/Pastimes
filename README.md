@@ -119,11 +119,17 @@ Database interaction
 
 ### Contributors
 Clarity Masuku
+
 Student Number: [10438928]
+
 Sibusiso Mabena
+
 Student Number: [ST10462532]
+
 Unathi Mgandela
+
 Student Number: [ST10447100]
+
 ### Module Information
 Module Name: Web Development part 2 (Intermediate)
 Module Code: WEDE6021/w
