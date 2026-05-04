@@ -2,7 +2,7 @@
 
 **Pastimes Threads** is a modern, elegant e-commerce web application built for a clothing marketplace. It features a clean, timeless design with a focus on user experience for browsing, shopping, and managing products.
 
-![Pastimes Threads](https://via.placeholder.com/800x400/2a3a3a/fff?text=Pastimes+Threads)
+![Pastimes Threads](https://choppier-cathy-contagioned.ngrok-free.dev/)
 
 ## Features
 
