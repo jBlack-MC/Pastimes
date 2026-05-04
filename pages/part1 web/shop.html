@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
+  <title>ShopSphere · local clothes marketplace</title>
+  <!-- Font Awesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    :root {
+      --sand: #f6efe5;
+      --paper: #fffaf4;
+      --ink: #1f1a17;
+      --muted: #6e635a;
+      --rust: #bf5a36;
+      --forest: #1f5a4d;
+      --gold: #d7a85f;
+      --line: rgba(31, 26, 23, 0.12);
+      --shadow: 0 18px 45px rgba(31, 26, 23, 0.12);
+      --radius-lg: 28px;
+      --radius-md: 18px;
+      --radius-sm: 12px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: system-ui, "Segoe UI", "Trebuchet MS", -apple-system, BlinkMacSystemFont, sans-serif;
+      color: var(--ink);
+      background: linear-gradient(180deg, #fcf7f0 0%, #f5ede2 100%);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    .app-wrapper {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 1rem 2rem;
+    }
+
+    /* mockup flag */
+    .mockup-flag {
+      text-align: right;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      text-transform: uppercase;
+      padding: 0.6rem 0 0.25rem;
+    }
+
+    /* header – clean & sticky-friendly */
+    .top-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.8rem 1.2rem;
+      background: rgba(255, 250, 244, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 60px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 6px 18px rgba(31, 26, 23, 0.05);
+      margin-bottom: 1.8rem;
+    }
+
+    .logo-area {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, var(--forest), #2f7968);
+      color: white;
+      font-size: 1.4rem;
+    }
+
+    .logo-text {
+      font-weight: 800;
+      font-size: 1.6rem;
+      letter-spacing: -0.02em;
+      font-family: 'Inter', system-ui, sans-serif;
+      color: var(--forest);
+    }
+
+    .badge-multi {
+      background: rgba(31, 90, 77, 0.12);
+      color: var(--forest);
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 30px;
+      margin-left: 6px;
+      border: 1px solid rgba(31, 90, 77, 0.2);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-icon-btn {
+      background: rgba(255, 250, 244, 0.8);
+      border: 1px solid var(--line);
+      width: 42px;
+      height: 42px;
+      border-radius: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      color: var(--ink);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .cart-badge {
+      position: relative;
+    }
+
+    .cart-count {
+      position: absolute;
+      top: -6px;
+      right: -6px;
+      background: var(--rust);
+      color: white;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 30px;
+      border: 2px solid white;
+    }
+
+    /* search row */
+    .search-section {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 2rem;
+      align-items: center;
+    }
+
+    .search-wrapper {
+      flex: 3;
+      min-width: 240px;
+      display: flex;
+      background: var(--paper);
+      border-radius: 60px;
+      border: 1.5px solid var(--line);
+      padding: 4px 4px 4px 20px;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    }
+
+    .search-wrapper i {
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .search-wrapper input {
+      border: none;
+      padding: 12px 10px;
+      font-size: 0.95rem;
+      width: 100%;
+      background: transparent;
+      outline: none;
+    }
+
+    .search-wrapper button {
+      background: var(--forest);
+      border: none;
+      color: white;
+      padding: 9px 22px;
+      border-radius: 50px;
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .filter-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .filter-select {
+      background: var(--paper);
+      border: 1.5px solid var(--line);
+      padding: 10px 18px;
+      border-radius: 40px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    /* main grid */
+    .marketplace-grid {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 28px;
+    }
+
+    /* product feed */
+    .feed-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 1.4rem;
+      flex-wrap: wrap;
+    }
+
+    .feed-header h2 {
+      font-weight: 700;
+      font-size: 1.6rem;
+      letter-spacing: -0.01em;
+      font-family: 'Inter', system-ui, sans-serif;
+      color: var(--ink);
+    }
+
+    .seller-nearby {
+      background: rgba(215, 168, 95, 0.18);
+      padding: 6px 16px;
+      border-radius: 40px;
+      font-weight: 600;
+      font-size: 0.8rem;
+      color: var(--forest);
+    }
+
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 22px;
+    }
+
+    .product-card {
+      background: var(--paper);
+      border-radius: var(--radius-lg);
+      padding: 14px 14px 18px;
+      box-shadow: 0 12px 28px rgba(31, 26, 23, 0.08);
+      transition: all 0.2s ease;
+      border: 1px solid rgba(255,255,240,0.9);
+    }
+
+    .product-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 24px 38px -12px rgba(31, 26, 23, 0.18);
+    }
+
+    /* clothing-themed image placeholder */
+    .product-img {
+      background: linear-gradient(145deg, #e9dfd1, #ddd2c2);
+      height: 170px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+      color: var(--forest);
+      font-size: 2.6rem;
+    }
+
+    .product-title {
+      font-weight: 700;
+      font-size: 1.05rem;
+      margin-bottom: 4px;
+    }
+
+    .seller-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 6px 0 8px;
+      flex-wrap: wrap;
+    }
+
+    .seller-name {
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .rating-stars {
+      color: var(--gold);
+      letter-spacing: 1.5px;
+      font-size: 0.7rem;
+      display: flex;
+      align-items: center;
+    }
+
+    .rating-value {
+      font-weight: 650;
+      margin-left: 4px;
+      font-size: 0.7rem;
+    }
+
+    .price-wish {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin: 10px 0 10px;
+    }
+
+    .price {
+      font-weight: 800;
+      font-size: 1.35rem;
+      color: var(--rust);
+    }
+
+    .wishlist-btn {
+      background: none;
+      border: 1px solid var(--line);
+      width: 34px;
+      height: 34px;
+      border-radius: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      cursor: pointer;
+      transition: 0.1s;
+    }
+
+    .add-cart-btn {
+      background: var(--forest);
+      color: white;
+      border: none;
+      padding: 11px 6px;
+      border-radius: 40px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      width: 100%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    /* sidebar */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .side-card {
+      background: var(--paper);
+      border-radius: var(--radius-lg);
+      padding: 20px 20px;
+      box-shadow: 0 12px 26px rgba(31, 26, 23, 0.06);
+      border: 1px solid rgba(255, 255, 240, 0.7);
+    }
+
+    .side-title {
+      font-weight: 700;
+      font-size: 1.25rem;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--forest);
+    }
+
+    .seller-list {
+      list-style: none;
+    }
+
+    .seller-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .seller-item:last-child { border-bottom: none; }
+
+    .seller-avatar {
+      width: 44px;
+      height: 44px;
+      background: rgba(215, 168, 95, 0.2);
+      border-radius: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: var(--forest);
+      margin-right: 14px;
+    }
+
+    .seller-info {
+      flex: 1;
+    }
+
+    .seller-shop {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .rating-large {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--gold);
+      font-size: 0.7rem;
+    }
+
+    .track-box {
+      background: rgba(215, 168, 95, 0.08);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      margin-top: 8px;
+    }
+
+    .track-step {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 12px 0;
+    }
+
+    .step-icon {
+      width: 34px;
+      height: 34px;
+      background: var(--paper);
+      border-radius: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--forest);
+      border: 1px solid var(--line);
+    }
+
+    .review-sample {
+      background: #fefaf5;
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      margin: 12px 0;
+      border: 1px solid var(--line);
+    }
+
+    .button-outline {
+      background: transparent;
+      border: 1.5px solid var(--forest);
+      border-radius: 40px;
+      padding: 10px 12px;
+      width: 100%;
+      font-weight: 700;
+      margin-top: 12px;
+      color: var(--forest);
+      cursor: pointer;
+    }
+
+    .secure-checkout-bar {
+      margin-top: 2rem;
+      background: var(--paper);
+      border-radius: 60px;
+      padding: 14px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border: 1px solid var(--line);
+    }
+
+    .mockup-note {
+      margin-top: 1.8rem;
+      padding: 12px 20px;
+      background: rgba(255, 250, 244, 0.8);
+      border-radius: 60px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      font-size: 0.75rem;
+      color: var(--forest);
+      font-weight: 500;
+    }
+
+    @media (max-width: 880px) {
+      .marketplace-grid {
+        grid-template-columns: 1fr;
+      }
+      .sidebar {
+        order: 2;
+      }
+      .feed-header h2 {
+        font-size: 1.4rem;
+      }
+    }
+
+    @media (max-width: 550px) {
+      .app-wrapper {
+        padding: 0 0.8rem 1.5rem;
+      }
+      .top-bar {
+        padding: 0.6rem 1rem;
+      }
+      .logo-text {
+        font-size: 1.3rem;
+      }
+      .logo-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 1.2rem;
+      }
+      .product-grid {
+        grid-template-columns: 1fr;
+      }
+      .search-wrapper input {
+        font-size: 0.85rem;
+      }
+      .filter-select {
+        padding: 8px 14px;
+        font-size: 0.75rem;
+      }
+      .secure-checkout-bar {
+        flex-direction: column;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="app-wrapper">
+  <div class="mockup-flag">
+    <i class="fas fa-tshirt"></i> ShopSphere · local clothing marketplace
+  </div>
+
+  <!-- HEADER -->
+  <header class="top-bar">
+    <div class="logo-area">
+      <div class="logo-icon">
+        <i class="fas fa-vest"></i>
+      </div>
+      <div>
+        <span class="logo-text">ShopSphere</span>
+        <span class="badge-multi"><i class="fas fa-store"></i> local fashion</span>
+      </div>
+    </div>
+    <div class="nav-actions">
+      <button class="nav-icon-btn" aria-label="wishlist"><i class="far fa-heart"></i></button>
+      <div class="cart-badge">
+        <button class="nav-icon-btn" aria-label="shopping bag"><i class="fas fa-shopping-bag"></i></button>
+        <span class="cart-count">3</span>
+      </div>
+      <button class="nav-icon-btn" aria-label="account"><i class="far fa-user-circle"></i></button>
+    </div>
+  </header>
+
+  <!-- SEARCH & FILTERS (clothing focused) -->
+  <div class="search-section">
+    <div class="search-wrapper">
+      <i class="fas fa-search"></i>
+      <input type="text" placeholder="Search clothes, brands, or local shops..." value="cotton shirts">
+      <button><i class="fas fa-sliders-h"></i> Filter</button>
+    </div>
+    <div class="filter-group">
+      <select class="filter-select">
+        <option>All clothing</option>
+        <option>Men</option>
+        <option>Women</option>
+        <option>Accessories</option>
+        <option>Sustainable</option>
+      </select>
+      <select class="filter-select">
+        <option>Sort: popular</option>
+        <option>Price: low to high</option>
+        <option>Top rated</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- MAIN GRID: CLOTHING SHOP -->
+  <div class="marketplace-grid">
+    <!-- LEFT: PRODUCTS (apparel) -->
+    <section>
+      <div class="feed-header">
+        <h2><i class="fas fa-hanger" style="margin-right: 10px; color: var(--rust);"></i>Trending threads</h2>
+        <span class="seller-nearby"><i class="fas fa-users"></i> 14 local boutiques</span>
+      </div>
+      <div class="product-grid">
+        <!-- product 1 - organic cotton tee -->
+        <div class="product-card">
+          <div class="product-img"><i class="fas fa-tshirt"></i></div>
+          <div class="product-title">Organic Cotton Tee</div>
+          <div class="seller-row">
+            <span class="seller-name">Heritage Basics</span>
+            <span class="rating-stars"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star-half-alt"></i><span class="rating-value">4.8</span></span>
+          </div>
+          <div class="price-wish">
+            <span class="price">$24.90</span>
+            <button class="wishlist-btn"><i class="far fa-heart"></i></button>
+          </div>
+          <button class="add-cart-btn"><i class="fas fa-cart-plus"></i> Add</button>
+        </div>
+        <!-- product 2 - linen shirt -->
+        <div class="product-card">
+          <div class="product-img"><i class="fas fa-vest"></i></div>
+          <div class="product-title">Linen Blend Shirt</div>
+          <div class="seller-row">
+            <span class="seller-name">Thread & Oak</span>
+            <span class="rating-stars"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="far fa-star"></i><span class="rating-value">4.2</span></span>
+          </div>
+          <div class="price-wish">
+            <span class="price">$49.50</span>
+            <button class="wishlist-btn"><i class="far fa-heart"></i></button>
+          </div>
+          <button class="add-cart-btn"><i class="fas fa-cart-plus"></i> Add</button>
+        </div>
+        <!-- product 3 - denim jacket -->
+        <div class="product-card">
+          <div class="product-img"><i class="fas fa-user-tie"></i></div>
+          <div class="product-title">Vintage Denim Jacket</div>
+          <div class="seller-row">
+            <span class="seller-name">Urban Rewind</span>
+            <span class="rating-stars"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><span class="rating-value">5.0</span></span>
+          </div>
+          <div class="price-wish">
+            <span class="price">$79.00</span>
+            <button class="wishlist-btn"><i class="far fa-heart"></i></button>
+          </div>
+          <button class="add-cart-btn"><i class="fas fa-cart-plus"></i> Add</button>
+        </div>
+        <!-- product 4 - wool scarf -->
+        <div class="product-card">
+          <div class="product-img"><i class="fas fa-scarf"></i></div>
+          <div class="product-title">Handwoven Scarf</div>
+          <div class="seller-row">
+            <span class="seller-name">Wool&Weave</span>
+            <span class="rating-stars"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="far fa-star"></i><span class="rating-value">4.3</span></span>
+          </div>
+          <div class="price-wish">
+            <span class="price">$34.99</span>
+            <button class="wishlist-btn"><i class="far fa-heart"></i></button>
+          </div>
+          <button class="add-cart-btn"><i class="fas fa-cart-plus"></i> Add</button>
+        </div>
+        <!-- product 5 - joggers -->
+        <div class="product-card">
+          <div class="product-img"><i class="fas fa-shoe-prints"></i></div>
+          <div class="product-title">French Terry Joggers</div>
+          <div class="seller-row">
+            <span class="seller-name">Cozy Nest</span>
+            <span class="rating-stars"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star-half-alt"></i><span class="rating-value">4.7</span></span>
+          </div>
+          <div class="price-wish">
+            <span class="price">$42.00</span>
+            <button class="wishlist-btn"><i class="far fa-heart"></i></button>
+          </div>
+          <button class="add-cart-btn"><i class="fas fa-cart-plus"></i> Add</button>
+        </div>
+        <!-- product 6 - leather belt -->
+        <div class="product-card">
+          <div class="product-img"><i class="fas fa-gripfire"></i></div>
+          <div class="product-title">Full-Grain Belt</div>
+          <div class="seller-row">
+            <span class="seller-name">Leathercraft Co</span>
+            <span class="rating-stars"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><span class="rating-value">4.9</span></span>
+          </div>
+          <div class="price-wish">
+            <span class="price">$28.99</span>
+            <button class="wishlist-btn"><i class="far fa-heart"></i></button>
+          </div>
+          <button class="add-cart-btn"><i class="fas fa-cart-plus"></i> Add</button>
+        </div>
+        <!-- product 7 - sundress -->
+        <div class="product-card">
+          <div class="product-img"><i class="fas fa-female"></i></div>
+          <div class="product-title">Linen Midi Dress</div>
+          <div class="seller-row">
+            <span class="seller-name">Sunday Studio</span>
+            <span class="rating-stars"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="far fa-star"></i><span class="rating-value">4.4</span></span>
+          </div>
+          <div class="price-wish">
+            <span class="price">$67.00</span>
+            <button class="wishlist-btn"><i class="far fa-heart"></i></button>
+          </div>
+          <button class="add-cart-btn"><i class="fas fa-cart-plus"></i> Add</button>
+        </div>
+      </div>
+      <div style="margin-top: 28px; text-align: center;">
+        <span style="background: var(--paper); padding: 10px 28px; border-radius: 40px; border:1.5px dashed var(--line); color:var(--forest); font-weight:600; display:inline-block; font-size:0.9rem;"><i class="fas fa-plus-circle"></i> Show more styles</span>
+      </div>
+    </section>
+
+    <!-- RIGHT SIDEBAR (local sellers, tracking, reviews) -->
+    <aside class="sidebar">
+      <div class="side-card">
+        <div class="side-title"><i class="fas fa-medal" style="color:var(--gold);"></i> Top clothing sellers</div>
+        <ul class="seller-list">
+          <li class="seller-item">
+            <div class="seller-avatar">HB</div>
+            <div class="seller-info">
+              <div class="seller-shop">Heritage Basics</div>
+              <div class="rating-large"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star-half-alt"></i> <span class="rating-num">4.8 (204)</span></div>
+            </div>
+          </li>
+          <li class="seller-item">
+            <div class="seller-avatar">TO</div>
+            <div class="seller-info">
+              <div class="seller-shop">Thread & Oak</div>
+              <div class="rating-large"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="far fa-star"></i> <span class="rating-num">4.2 (187)</span></div>
+            </div>
+          </li>
+          <li class="seller-item">
+            <div class="seller-avatar">UR</div>
+            <div class="seller-info">
+              <div class="seller-shop">Urban Rewind</div>
+              <div class="rating-large"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i> <span class="rating-num">5.0 (96)</span></div>
+            </div>
+          </li>
+          <li class="seller-item">
+            <div class="seller-avatar">LC</div>
+            <div class="seller-info">
+              <div class="seller-shop">Leathercraft Co</div>
+              <div class="rating-large"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i> <span class="rating-num">4.9 (143)</span></div>
+            </div>
+          </li>
+        </ul>
+        <div style="margin-top: 12px; color:var(--forest); font-size:0.85rem;"><i class="fas fa-chevron-circle-right"></i> Browse 14 local sellers</div>
+      </div>
+
+      <div class="side-card">
+        <div class="side-title"><i class="fas fa-truck-fast"></i> Order tracking</div>
+        <div class="track-box">
+          <div style="font-weight:700; margin-bottom:12px;">👖 Order #SP-935 · Heritage Basics</div>
+          <div class="track-step">
+            <div class="step-icon"><i class="fas fa-check-circle" style="color:var(--forest);"></i></div>
+            <div class="track-status">Confirmed</div>
+          </div>
+          <div class="track-step">
+            <div class="step-icon"><i class="fas fa-box-open"></i></div>
+            <div class="track-status">Packed</div>
+          </div>
+          <div class="track-step">
+            <div class="step-icon"><i class="fas fa-location-dot"></i></div>
+            <div class="track-status">Out for delivery</div>
+          </div>
+          <button class="button-outline"><i class="fas fa-map-location-dot"></i> Track order</button>
+        </div>
+        <div style="margin-top: 18px; display: flex; align-items: center; gap: 8px; background: rgba(31, 90, 77, 0.06); padding: 8px 14px; border-radius: 40px;">
+          <i class="fas fa-lock" style="color:var(--forest);"></i> <strong>Secure checkout</strong> · <i class="fab fa-cc-paypal"></i> <i class="fab fa-cc-visa"></i>
+        </div>
+      </div>
+
+      <div class="side-card">
+        <div class="side-title"><i class="fas fa-comment-dots"></i> Recent style reviews</div>
+        <div class="review-sample">
+          <div class="reviewer"><i class="fas fa-user-circle"></i> Taylor K. · <span class="small-stars"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i></span></div>
+          <div style="margin:6px 0 2px; font-weight:500;">“Perfect organic tee, super soft and fits great.”</div>
+          <div style="font-size:0.7rem; color:var(--muted);">2 days ago · Heritage Basics</div>
+        </div>
+        <div class="review-sample">
+          <div class="reviewer"><i class="fas fa-user-circle"></i> Jordan M. · <span class="small-stars"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="far fa-star"></i></span></div>
+          <div style="margin:6px 0 2px; font-weight:500;">“Denim jacket is exactly as pictured, fast shipping.”</div>
+          <div style="font-size:0.7rem; color:var(--muted);">yesterday · Urban Rewind</div>
+        </div>
+        <div style="margin-top: 12px; background: rgba(215, 168, 95, 0.12); border-radius: 30px; padding: 8px 14px; font-size:0.8rem;">
+          <i class="fas fa-star" style="color:var(--gold);"></i> <strong>4.7 avg seller rating</strong> (1.1k+ ratings)
+        </div>
+      </div>
+      
+      <div style="display:flex; align-items:center; justify-content: space-between; background: var(--paper); border-radius: 60px; padding: 12px 20px; border:1px solid var(--line);">
+        <span><i class="far fa-heart" style="color:var(--rust);"></i> Wishlist (5 items)</span>
+        <span><i class="fas fa-shopping-bag"></i> Cart $142.39</span>
+      </div>
+    </aside>
+  </div>
+
+  <!-- BOTTOM BAR (clothing oriented) -->
+  <div class="secure-checkout-bar">
+    <div><i class="fas fa-shield-halved" style="color:var(--forest);"></i> <strong>Buyer protection</strong> · easy returns</div>
+    <div><i class="fas fa-star" style="color:var(--gold);"></i> <strong>4.7 ★ seller avg</strong> from 1.8k ratings</div>
+    <div><i class="fas fa-store" style="color:var(--rust);"></i> 14 local boutiques</div>
+    <div><i class="fas fa-tag"></i> Sustainable & handmade options</div>
+  </div>
+  
+  <!-- FOOTER MOCKUP -->
+  <div class="mockup-note">
+    <span><i class="fas fa-search"></i> Smart search</span>
+    <span><i class="fas fa-credit-card"></i> Secure payment</span>
+    <span><i class="fas fa-truck"></i> Live tracking</span>
+    <span><i class="fas fa-star"></i> Verified reviews</span>
+    <span><i class="fas fa-tshirt"></i> Local clothing</span>
+    <span style="background: var(--paper); padding: 4px 14px; border-radius: 30px;"><i class="far fa-file-code"></i> ready to shop</span>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,612 @@
+<?php
+session_start();
+
+if (!isset($_SESSION["user_id"])) {
+  header("Location: login.php");
+  exit;
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
+  <title>Pastimes · Seller Dashboard</title>
+  <!-- Font Awesome 6 -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --bg-page: #f9f7f4;
+      --white: #ffffff;
+      --text-primary: #1e2a2a;
+      --text-secondary: #5a6e6e;
+      --text-muted: #8a9b9b;
+      --green: #2a6b5e;
+      --green-dark: #1e5247;
+      --rust: #c26743;
+      --gold: #d4a259;
+      --border: #e8e6e1;
+      --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.03);
+      --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06);
+      --radius-lg: 24px;
+      --radius-md: 16px;
+      --radius-sm: 12px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg-page);
+      color: var(--text-primary);
+      line-height: 1.5;
+    }
+
+    .dashboard-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 1.2rem 1.5rem 2rem;
+    }
+
+    /* header */
+    .site-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.8rem;
+      padding-bottom: 0.8rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo-area {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+    }
+
+    .logo-icon {
+      width: 42px;
+      height: 42px;
+      background: linear-gradient(135deg, var(--green), #3a8a7a);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 1.3rem;
+    }
+
+    .logo-text {
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: var(--green);
+    }
+
+    .badge {
+      background: #eef3f1;
+      color: var(--green);
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 30px;
+      margin-left: 8px;
+    }
+
+    .seller-badge {
+      background: var(--gold);
+      color: #2a2a2a;
+    }
+
+    .nav-icons {
+      display: flex;
+      gap: 12px;
+    }
+
+    .icon-btn {
+      background: var(--white);
+      border: 1px solid var(--border);
+      width: 42px;
+      height: 42px;
+      border-radius: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    /* stats cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.2rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      padding: 1.2rem 1rem;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .stat-title {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--green);
+    }
+
+    .stat-sub {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    /* tabs */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.5rem;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      padding: 10px 20px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-radius: 40px;
+      transition: 0.2s;
+    }
+
+    .tab-btn.active {
+      background: var(--green);
+      color: white;
+    }
+
+    /* product table / grid */
+    .products-section, .orders-section {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+      overflow-x: auto;
+      padding: 1rem;
+    }
+
+    .add-product-bar {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 1rem;
+    }
+
+    .btn-primary {
+      background: var(--green);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 40px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      padding: 6px 14px;
+      border-radius: 30px;
+      cursor: pointer;
+      font-size: 0.75rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 12px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      font-weight: 600;
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+    }
+
+    .product-img-small {
+      width: 48px;
+      height: 48px;
+      background: #edece4;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--green);
+    }
+
+    .status-badge {
+      background: #e8f5f2;
+      color: var(--green);
+      padding: 4px 10px;
+      border-radius: 30px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      display: inline-block;
+    }
+
+    .status-sold {
+      background: #fef2e8;
+      color: var(--rust);
+    }
+
+    .action-icons i {
+      margin: 0 4px;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: 0.2s;
+    }
+
+    .action-icons i:hover {
+      color: var(--rust);
+    }
+
+    /* modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-content {
+      background: var(--white);
+      max-width: 500px;
+      width: 90%;
+      border-radius: var(--radius-lg);
+      padding: 1.8rem;
+    }
+    .modal input, .modal select, .modal textarea {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+    .modal-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+    }
+
+    @media (max-width: 700px) {
+      .dashboard-container {
+        padding: 1rem;
+      }
+      th, td {
+        font-size: 0.75rem;
+        padding: 8px 6px;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="dashboard-container">
+  <!-- header -->
+  <header class="site-header">
+    <a class="logo-area" href="shop.php" style="text-decoration:none;">
+      <div class="logo-icon"><i class="fas fa-vest"></i></div>
+      <div>
+        <span class="logo-text">Pastimes</span>
+        <span class="badge seller-badge"><i class="fas fa-store"></i> Seller Hub</span>
+      </div>
+    </a>
+    <div class="nav-icons">
+      <button class="icon-btn" id="logoutBtn" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
+    </div>
+  </header>
+
+  <!-- stats cards -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-title">Total Products</div>
+      <div class="stat-value" id="totalProducts">0</div>
+      <div class="stat-sub">active listings</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">Total Sales</div>
+      <div class="stat-value" id="totalSales">$0</div>
+      <div class="stat-sub">lifetime revenue</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">Orders</div>
+      <div class="stat-value" id="orderCount">0</div>
+      <div class="stat-sub">completed</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-title">Avg Rating</div>
+      <div class="stat-value" id="avgRating">0.0</div>
+      <div class="stat-sub">⭐ from buyers</div>
+    </div>
+  </div>
+
+  <!-- tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="products">📦 My Products</button>
+    <button class="tab-btn" data-tab="orders">📋 Sales & Orders</button>
+  </div>
+
+  <!-- products panel -->
+  <div id="productsPanel" class="products-section">
+    <div class="add-product-bar">
+      <button class="btn-primary" id="addProductBtn"><i class="fas fa-plus"></i> Add New Item</button>
+    </div>
+    <div style="overflow-x: auto;">
+      <table id="productsTable">
+        <thead>
+          <tr><th>Image</th><th>Product</th><th>Price</th><th>Status</th><th>Sales</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="productsTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- orders panel (hidden initially) -->
+  <div id="ordersPanel" class="orders-section" style="display: none;">
+    <h3 style="margin-bottom: 1rem;"><i class="fas fa-truck"></i> Recent orders</h3>
+    <div style="overflow-x: auto;">
+      <table>
+        <thead><tr><th>Order ID</th><th>Product</th><th>Buyer</th><th>Qty</th><th>Total</th><th>Date</th><th>Status</th></tr></thead>
+        <tbody id="ordersTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- add/edit product modal -->
+  <div id="productModal" class="modal">
+    <div class="modal-content">
+      <h3 id="modalTitle">Add New Product</h3>
+      <input type="hidden" id="editProductId">
+      <label>Product Name</label>
+      <input type="text" id="productName" placeholder="e.g., Organic Cotton Tee">
+      <label>Category</label>
+      <select id="productCategory"><option>Men</option><option>Women</option><option>Accessories</option><option>Sustainable</option></select>
+      <label>Price ($)</label>
+      <input type="number" id="productPrice" step="0.01" placeholder="29.99">
+      <label>Stock</label>
+      <input type="number" id="productStock" value="10">
+      <label>Image Icon (Font Awesome class)</label>
+      <input type="text" id="productIcon" placeholder="fa-tshirt">
+      <div class="modal-buttons">
+        <button class="btn-outline" id="closeModalBtn">Cancel</button>
+        <button class="btn-primary" id="saveProductBtn">Save Product</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---------- DEMO DATA ----------
+  let sellerProducts = [
+    { id: 101, name: "Organic Cotton Tee", category: "Men", price: 24.90, stock: 12, icon: "fa-tshirt", sales: 8, status: "active" },
+    { id: 102, name: "Linen Blend Shirt", category: "Men", price: 49.50, stock: 5, icon: "fa-vest", sales: 3, status: "active" },
+    { id: 103, name: "Vintage Denim Jacket", category: "Women", price: 79.00, stock: 0, icon: "fa-user-tie", sales: 6, status: "out_of_stock" },
+    { id: 104, name: "Handwoven Wool Scarf", category: "Accessories", price: 34.99, stock: 8, icon: "fa-scarf", sales: 2, status: "active" }
+  ];
+
+  // sales orders (linked to products)
+  let salesOrders = [
+    { id: "ORD-001", productId: 101, productName: "Organic Cotton Tee", buyer: "alex@example.com", qty: 2, total: 49.80, date: "2025-04-10", status: "delivered" },
+    { id: "ORD-002", productId: 103, productName: "Vintage Denim Jacket", buyer: "jordan@example.com", qty: 1, total: 79.00, date: "2025-04-05", status: "delivered" },
+    { id: "ORD-003", productId: 101, productName: "Organic Cotton Tee", buyer: "sam@example.com", qty: 1, total: 24.90, date: "2025-04-12", status: "shipped" },
+    { id: "ORD-004", productId: 102, productName: "Linen Blend Shirt", buyer: "chris@example.com", qty: 1, total: 49.50, date: "2025-04-08", status: "delivered" },
+    { id: "ORD-005", productId: 104, productName: "Handwoven Wool Scarf", buyer: "taylor@example.com", qty: 1, total: 34.99, date: "2025-04-11", status: "processing" }
+  ];
+
+  let nextProductId = 105;
+  let nextOrderId = 6;
+
+  // Helper: update dashboard stats
+  function updateStats() {
+    const totalProductsCount = sellerProducts.length;
+    const totalRevenue = salesOrders.reduce((sum, order) => sum + order.total, 0);
+    const orderCount = salesOrders.length;
+    const avgRating = 4.7; // demo static rating
+
+    document.getElementById('totalProducts').innerText = totalProductsCount;
+    document.getElementById('totalSales').innerText = `$${totalRevenue.toFixed(2)}`;
+    document.getElementById('orderCount').innerText = orderCount;
+    document.getElementById('avgRating').innerText = avgRating.toFixed(1);
+  }
+
+  // render products table
+  function renderProducts() {
+    const tbody = document.getElementById('productsTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    sellerProducts.forEach(product => {
+      const row = tbody.insertRow();
+      row.innerHTML = `
+        <td><div class="product-img-small"><i class="fas ${product.icon}"></i></div></td>
+        <td><strong>${escapeHtml(product.name)}</strong><br><small>${product.category}</small></td>
+        <td>$${product.price.toFixed(2)}</td>
+        <td><span class="status-badge ${product.stock === 0 ? 'status-sold' : ''}">${product.stock > 0 ? 'In stock' : 'Out of stock'}</span></td>
+        <td>${product.sales || 0}</td>
+        <td class="action-icons">
+          <i class="fas fa-edit" data-id="${product.id}" title="Edit"></i>
+          <i class="fas fa-trash-alt" data-id="${product.id}" title="Delete"></i>
+        </td>
+      `;
+    });
+
+    // attach edit/delete events
+    document.querySelectorAll('.fa-edit').forEach(icon => {
+      icon.addEventListener('click', (e) => {
+        const id = parseInt(icon.getAttribute('data-id'));
+        editProduct(id);
+      });
+    });
+    document.querySelectorAll('.fa-trash-alt').forEach(icon => {
+      icon.addEventListener('click', (e) => {
+        const id = parseInt(icon.getAttribute('data-id'));
+        if (confirm('Delete this product? It will also affect sales records.')) {
+          sellerProducts = sellerProducts.filter(p => p.id !== id);
+          renderProducts();
+          updateStats();
+        }
+      });
+    });
+  }
+
+  function renderOrders() {
+    const tbody = document.getElementById('ordersTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    salesOrders.forEach(order => {
+      const row = tbody.insertRow();
+      row.innerHTML = `
+        <td>${order.id}</td>
+        <td>${escapeHtml(order.productName)}</td>
+        <td>${order.buyer}</td>
+        <td>${order.qty}</td>
+        <td>$${order.total.toFixed(2)}</td>
+        <td>${order.date}</td>
+        <td><span class="status-badge">${order.status}</span></td>
+      `;
+    });
+  }
+
+  function editProduct(id) {
+    const product = sellerProducts.find(p => p.id === id);
+    if (!product) return;
+    document.getElementById('modalTitle').innerText = 'Edit Product';
+    document.getElementById('editProductId').value = product.id;
+    document.getElementById('productName').value = product.name;
+    document.getElementById('productCategory').value = product.category;
+    document.getElementById('productPrice').value = product.price;
+    document.getElementById('productStock').value = product.stock;
+    document.getElementById('productIcon').value = product.icon;
+    document.getElementById('productModal').style.display = 'flex';
+  }
+
+  function saveProductFromModal() {
+    const id = document.getElementById('editProductId').value;
+    const name = document.getElementById('productName').value.trim();
+    const category = document.getElementById('productCategory').value;
+    const price = parseFloat(document.getElementById('productPrice').value);
+    const stock = parseInt(document.getElementById('productStock').value);
+    const icon = document.getElementById('productIcon').value.trim() || 'fa-tshirt';
+
+    if (!name || isNaN(price) || price <= 0) {
+      alert('Please fill valid product name and price.');
+      return;
+    }
+
+    if (id) {
+      // edit existing
+      const index = sellerProducts.findIndex(p => p.id == id);
+      if (index !== -1) {
+        sellerProducts[index] = { ...sellerProducts[index], name, category, price, stock, icon };
+      }
+    } else {
+      // add new
+      const newProduct = {
+        id: nextProductId++,
+        name, category, price, stock, icon,
+        sales: 0,
+        status: 'active'
+      };
+      sellerProducts.push(newProduct);
+    }
+    renderProducts();
+    updateStats();
+    closeModal();
+  }
+
+  function closeModal() {
+    document.getElementById('productModal').style.display = 'none';
+    document.getElementById('editProductId').value = '';
+    document.getElementById('productName').value = '';
+    document.getElementById('productPrice').value = '';
+    document.getElementById('productStock').value = '10';
+    document.getElementById('productIcon').value = 'fa-tshirt';
+  }
+
+  function escapeHtml(str) { return str.replace(/[&<>]/g, function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+
+  // tab switching
+  const productsPanel = document.getElementById('productsPanel');
+  const ordersPanel = document.getElementById('ordersPanel');
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.getAttribute('data-tab');
+      if (tab === 'products') {
+        productsPanel.style.display = 'block';
+        ordersPanel.style.display = 'none';
+        renderProducts();
+      } else {
+        productsPanel.style.display = 'none';
+        ordersPanel.style.display = 'block';
+        renderOrders();
+      }
+    });
+  });
+
+  // modal handlers
+  document.getElementById('addProductBtn').addEventListener('click', () => {
+    document.getElementById('modalTitle').innerText = 'Add New Product';
+    document.getElementById('editProductId').value = '';
+    document.getElementById('productName').value = '';
+    document.getElementById('productPrice').value = '';
+    document.getElementById('productStock').value = '5';
+    document.getElementById('productIcon').value = 'fa-tshirt';
+    document.getElementById('productModal').style.display = 'flex';
+  });
+  document.getElementById('saveProductBtn').addEventListener('click', saveProductFromModal);
+  document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+  window.addEventListener('click', (e) => { if (e.target === document.getElementById('productModal')) closeModal(); });
+
+  // logout
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    window.location.href = "logout.php";
+  });
+
+  // initial render
+  renderProducts();
+  updateStats();
+  renderOrders(); // preload orders data
+</script>
+</body>
+</html>
+
