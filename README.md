@@ -7,7 +7,7 @@
 ## Features
 
 ### User Features
-- **User Registration/Sign-up & Login** – Secure password validation (hashed
+- **User Registration & Login** – Secure password validation (hashed
 - **Product Browsing** – Browse clothing items in a beautiful shop interface
 - **Product Details** – Detailed product pages
 - **Shopping Cart** – Add items to cart and manage selections
