@@ -30,8 +30,8 @@ Database Name: ClothingStore
 Tables:
 tblUser
 tblAdmin
-tblClothes
 tblOrder
+tblClothes
 
 The database structure is included in:
 
