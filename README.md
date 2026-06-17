@@ -1,20 +1,8 @@
-# Pastimes — Local Fashion Marketplace
+# Pastimes Threads - Clothing Store Web Application
 
-A PHP/MySQL e-commerce platform for buying, selling, and managing local and second-hand clothing.
+**Pastimes Threads** is a modern, elegant e-commerce web application built for a clothing marketplace. It features a clean, timeless design with a focus on user experience for browsing, shopping, and managing products.
 
-**Module:** Web Development Part 2 (WEDE6021/w)
-
----
-
-## Overview
-
-Pastimes is a multi-role web application with three user types:
-
-- **Buyers** – Browse products, manage a cart, checkout, and track orders.
-- **Sellers** – Register, upload product images, and manage inventory from a dedicated hub.
-- **Admins** – Verify users, approve sellers, manage the full product catalogue, process orders, and communicate via messages.
-
----
+![Pastimes Threads](https://via.placeholder.com/800x400/2a3a3a/fff?text=Pastimes+Threads)
 
 ## Features
 
@@ -132,43 +120,81 @@ Pastimes/
 │   ├── cart_update.php         AJAX: update cart quantity
 │   └── logout.php              Session destroy
 ├── scripts/
-│   ├── createTable.php         Creates tblUser and inserts seed data
-│   └── setup_messages.php      Creates tblmessage table
-├── uploads/                    Product images (move_uploaded_file target)
-├── index.php                   Landing page
-└── README.md
-```
+│   └── createTable.php
+│
+├── index.php
+├── readmefile.txt
+└── clothingstore.sql
 
----
+### Setup Instructions
 
-## Video Demonstration
+1. Install Requirements
+Install XAMPP or WAMP
+Start Apache and MySQL
 
-The walkthrough video covers:
+3. Move Project
 
-**User flow:** Register → Verification pending → Admin approves → Login → Browse shop → Add to cart → Update quantity → Remove item → Checkout → View order number
+Copy the project folder to:
 
-**Seller flow:** Apply as seller → Admin approves → Login → Add product (with image) → Edit product → Delete product
+C:\xampp\htdocs\
 
-**Admin flow:** Verify users → Approve sellers → Add/edit/delete products → View and update orders → Read and reply to messages
+3. Create Database
 
-**Database:** Show phpMyAdmin with all tables; show an order inserted into `tblorder`; show `tblcart` cleared after checkout
+Open phpMyAdmin
+Create database:
+ClothingStore
+4. Import Database
 
----
+Click Import
+Upload:
+clothingstore.sql
 
-## Contributors
+5. Run Application
 
-| Name | Student Number |
-| --- | --- |
-| Clarity Masuku | 10438928 |
-| Sibusiso Mabena | ST10462532 |
-| Unathi Mgandela | ST10447100 |
+Open browser:
 
----
+http://localhost/Pastimes/pages/login.php
+ 
+ ### Login System
+Passwords are stored using hashing
+Users must be verified by admin before login
+Invalid login shows error message
+Sticky form retains input values
+### Data Files
+userData.txt → contains sample user records
+Used to preload data into database
 
-## GitHub
+### Demonstration
 
-[https://github.com/jBlack-MC/Pastimes](https://github.com/jBlack-MC/Pastimes)
+A demonstration video is included showing:
 
----
+User registration
+Login attempt (before verification)
+Admin verification
+Successful login
+Database interaction
 
-> This project is for academic purposes. All data is fictitious. Ensure database settings match your local environment.
+### Contributors
+Clarity Masuku
+
+Student Number: [10438928]
+
+Sibusiso Mabena
+
+Student Number: [ST10462532]
+
+Unathi Mgandela
+
+Student Number: [ST10447100]
+
+### Module Information
+Module Name: Web Development part 2 (Intermediate)
+Module Code: WEDE6021/w
+### Notes
+This project is for academic purposes only
+All data used is fictitious
+Ensure database connection settings match your local environment
+### Version Control
+
+This project is managed using Git and hosted on GitHub:
+👉 https://github.com/jBlack-MC/Pastimes
