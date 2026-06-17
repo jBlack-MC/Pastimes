@@ -1,16 +1,61 @@
 <?php
+/* Register page – new customers create an account here; status starts as 'pending'
+   until an admin verifies it via the admin panel */
 session_start();
 error_reporting(E_ALL);
 ini_set("display_errors", 1);
 
 require_once __DIR__ . "/../config/DBConn.php";
 
+/* Prevent logged-in users from accessing the registration form */
 if (isset($_SESSION["user_id"])) {
     if (($_SESSION["role"] ?? "") === "admin") {
         header("Location: admin.php");
     } else {
         header("Location: shop.php");
     }
+    exit;
+}
+
+/* Show a success screen if the user was just added to the pending list */
+if (isset($_GET["pending"]) && $_GET["pending"] === "1") {
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pastimes · Registration Pending</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f9f7f4;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem}
+    .card{max-width:480px;width:100%;background:#fff;border-radius:28px;box-shadow:0 12px 28px rgba(0,0,0,.06);border:1px solid #e8e6e1;padding:2.5rem;text-align:center}
+    .icon{width:72px;height:72px;background:linear-gradient(135deg,#2a6b5e,#3a8a7a);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:2rem;margin:0 auto 1.2rem}
+    h1{font-size:1.6rem;font-weight:700;color:#1e2a2a;margin-bottom:.5rem}
+    p{color:#5a6e6e;font-size:.92rem;line-height:1.6;margin-bottom:1.2rem}
+    .steps{background:#f0f8f6;border-radius:16px;padding:1rem 1.4rem;text-align:left;margin-bottom:1.4rem}
+    .steps li{color:#1e2a2a;font-size:.85rem;padding:.3rem 0;list-style:none;display:flex;gap:10px;align-items:flex-start}
+    .steps li i{color:#2a6b5e;margin-top:2px;width:16px}
+    a.btn{display:inline-flex;align-items:center;gap:8px;background:#2a6b5e;color:#fff;text-decoration:none;border-radius:40px;padding:11px 22px;font-weight:700;font-size:.9rem}
+    a.btn:hover{background:#1e5247}
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="icon"><i class="fas fa-hourglass-half"></i></div>
+  <h1>Registration Submitted</h1>
+  <p>Your account has been added to the <strong>pending registration list</strong>. An administrator must verify your account before you can log in.</p>
+  <ul class="steps">
+    <li><i class="fas fa-circle-check"></i> Your details have been saved</li>
+    <li><i class="fas fa-hourglass-half"></i> Account is awaiting admin approval</li>
+    <li><i class="fas fa-arrow-right-to-bracket"></i> Once approved, you can log in normally</li>
+  </ul>
+  <a href="login.php" class="btn"><i class="fas fa-arrow-left"></i> Back to Login</a>
+</div>
+</body>
+</html>
+<?php
     exit;
 }
 
@@ -24,6 +69,7 @@ $values = [
 ];
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    /* Collect and sanitise all form fields; sticky values repopulate the form on error */
     $values["first_name"] = trim($_POST["first_name"] ?? "");
     $values["last_name"] = trim($_POST["last_name"] ?? "");
     $values["email"] = trim($_POST["email"] ?? "");
@@ -66,8 +112,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $message = "Username or email already exists.";
                 $messageType = "error";
             } else {
+                /* Build full name and hash the password with bcrypt before storing */
                 $fullName = trim($values["first_name"] . " " . $values["last_name"]);
                 $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+                /* New accounts are placed in 'pending' status until admin verifies them */
                 $status = "pending";
 
                 $insertStmt = mysqli_prepare(
@@ -91,7 +139,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
                     if (mysqli_stmt_execute($insertStmt)) {
                         mysqli_stmt_close($insertStmt);
-                        header("Location: login.php?registered=1");
+                        /* Redirect to a dedicated pending-approval page so the user
+                           understands their account needs admin verification before login */
+                        header("Location: register.php?pending=1");
                         exit;
                     }
 

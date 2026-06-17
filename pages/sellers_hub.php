@@ -1,14 +1,5 @@
-﻿<?php
-/**
- * Seller Hub - Seller Dashboard
- * 
- * Allows sellers to:
- * - Add new products
- * - View their products
- * - Edit products
- * - Delete products
- */
-
+<?php
+/* Seller Hub – sellers manage their product listings */
 session_start();
 
 if (!isset($_SESSION["user_id"])) {
@@ -26,18 +17,15 @@ $seller_brand = null;
 $error_message = "";
 $success_message = "";
 
-// Check if user is a seller
-$sellerStmt = mysqli_prepare($conn, 
+/* Resolve the seller record for the logged-in user */
+$sellerStmt = mysqli_prepare($conn,
     "SELECT seller_id, approval_status, brand_name FROM tblseller WHERE user_id = ?"
 );
-
 if ($sellerStmt) {
     mysqli_stmt_bind_param($sellerStmt, "i", $user_id);
     mysqli_stmt_execute($sellerStmt);
-    $sellerResult = mysqli_stmt_get_result($sellerStmt);
-    $sellerRow = mysqli_fetch_assoc($sellerResult);
+    $sellerRow = mysqli_fetch_assoc(mysqli_stmt_get_result($sellerStmt));
     mysqli_stmt_close($sellerStmt);
-    
     if ($sellerRow) {
         $seller_id = $sellerRow["seller_id"];
         $seller_status = $sellerRow["approval_status"];
@@ -50,146 +38,172 @@ if (!$seller_id) {
     exit;
 }
 
-// Handle delete product
+/* ── DELETE product ── */
 if (isset($_GET["delete"]) && is_numeric($_GET["delete"])) {
-    $product_id = (int)$_GET["delete"];
-    
-    // Verify ownership
-    $checkStmt = mysqli_prepare($conn, 
-        "SELECT product_id FROM tblclothes WHERE product_id = ? AND seller_id = ?"
-    );
-    
-    if ($checkStmt) {
-        mysqli_stmt_bind_param($checkStmt, "ii", $product_id, $seller_id);
-        mysqli_stmt_execute($checkStmt);
-        $checkResult = mysqli_stmt_get_result($checkStmt);
-        
-        if (mysqli_num_rows($checkResult) > 0) {
-            // Delete the product
-            $deleteStmt = mysqli_prepare($conn, "DELETE FROM tblclothes WHERE product_id = ?");
-            if ($deleteStmt) {
-                mysqli_stmt_bind_param($deleteStmt, "i", $product_id);
-                if (mysqli_stmt_execute($deleteStmt)) {
+    $del_id = (int)$_GET["delete"];
+    $chk = mysqli_prepare($conn, "SELECT product_id, image FROM tblclothes WHERE product_id = ? AND seller_id = ?");
+    if ($chk) {
+        mysqli_stmt_bind_param($chk, "ii", $del_id, $seller_id);
+        mysqli_stmt_execute($chk);
+        $chkRow = mysqli_fetch_assoc(mysqli_stmt_get_result($chk));
+        mysqli_stmt_close($chk);
+        if ($chkRow) {
+            $delStmt = mysqli_prepare($conn, "DELETE FROM tblclothes WHERE product_id = ?");
+            if ($delStmt) {
+                mysqli_stmt_bind_param($delStmt, "i", $del_id);
+                if (mysqli_stmt_execute($delStmt)) {
+                    /* Remove the uploaded image file if it is not the placeholder */
+                    $img = $chkRow["image"] ?? "";
+                    if ($img && $img !== "placeholder-clothing.jpg") {
+                        $imgPath = __DIR__ . "/../uploads/" . $img;
+                        if (file_exists($imgPath)) unlink($imgPath);
+                    }
                     $success_message = "Product deleted successfully.";
                 } else {
                     $error_message = "Error deleting product.";
                 }
-                mysqli_stmt_close($deleteStmt);
+                mysqli_stmt_close($delStmt);
             }
         }
-        mysqli_stmt_close($checkStmt);
     }
 }
 
-// Handle add/edit product
+/* ── ADD / EDIT product ── */
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["action"])) {
-    $action = $_POST["action"];
-    
-    if ($action === "add" || $action === "edit") {
-        $product_name = trim($_POST["product_name"] ?? "");
-        $brand = trim($_POST["brand"] ?? $seller_brand);
-        $description = trim($_POST["description"] ?? "");
-        $price = (float)($_POST["price"] ?? 0);
-        $stock = (int)($_POST["stock"] ?? 0);
-        
-        // Validation
-        if (empty($product_name)) {
-            $error_message = "Product name is required.";
-        } elseif ($price <= 0) {
-            $error_message = "Price must be greater than 0.";
-        } elseif ($stock < 0) {
-            $error_message = "Stock cannot be negative.";
-        } else if ($action === "add") {
-            $image = "placeholder-clothing.jpg";
+    $action       = $_POST["action"];
+    $product_name = trim($_POST["product_name"] ?? "");
+    $brand        = trim($_POST["brand"] ?? $seller_brand);
+    $description  = trim($_POST["description"] ?? "");
+    $price        = (float)($_POST["price"] ?? 0);
+    $stock        = (int)($_POST["stock"] ?? 0);
 
-            // Add new product
-            $insertStmt = mysqli_prepare($conn,
-                "INSERT INTO tblclothes (user_id, seller_id, name, brand, description, price, stock, image, created_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())"
-            );
-            
-            if ($insertStmt) {
-                mysqli_stmt_bind_param($insertStmt, "iisssdis", $user_id, $seller_id, $product_name, $brand, $description, $price, $stock, $image);
-                
-                if (mysqli_stmt_execute($insertStmt)) {
-                    $success_message = "Product added successfully!";
+    if (empty($product_name)) {
+        $error_message = "Product name is required.";
+    } elseif ($price <= 0) {
+        $error_message = "Price must be greater than 0.";
+    } elseif ($stock < 0) {
+        $error_message = "Stock cannot be negative.";
+    } else {
+        /* Handle optional image upload for both add and edit */
+        $uploaded_image = null;
+        if (isset($_FILES["product_image"]) && $_FILES["product_image"]["error"] === UPLOAD_ERR_OK) {
+            $ext     = strtolower(pathinfo($_FILES["product_image"]["name"], PATHINFO_EXTENSION));
+            $allowed = ["jpg", "jpeg", "png", "gif", "webp"];
+            if (in_array($ext, $allowed, true)) {
+                $filename  = uniqid("img_") . "." . $ext;
+                $uploadDir = __DIR__ . "/../uploads/";
+                if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+                /* Move the uploaded file to the uploads directory */
+                if (move_uploaded_file($_FILES["product_image"]["tmp_name"], $uploadDir . $filename)) {
+                    $uploaded_image = $filename;
                 } else {
-                    $error_message = "Error adding product: " . mysqli_error($conn);
+                    $error_message = "Image upload failed. Please try again.";
                 }
-                mysqli_stmt_close($insertStmt);
+            } else {
+                $error_message = "Only JPG, PNG, GIF, or WEBP images are allowed.";
             }
-        } else if ($action === "edit") {
-            // Edit product
-            $product_id = (int)($_POST["product_id"] ?? 0);
-            
-            // Verify ownership
-            $checkStmt = mysqli_prepare($conn,
-                "SELECT product_id FROM tblclothes WHERE product_id = ? AND seller_id = ?"
-            );
-            
-            if ($checkStmt) {
-                mysqli_stmt_bind_param($checkStmt, "ii", $product_id, $seller_id);
-                mysqli_stmt_execute($checkStmt);
-                $checkResult = mysqli_stmt_get_result($checkStmt);
-                
-                if (mysqli_num_rows($checkResult) > 0) {
-                    $updateStmt = mysqli_prepare($conn,
-                        "UPDATE tblclothes SET name = ?, brand = ?, description = ?, price = ?, stock = ?
-                         WHERE product_id = ? AND seller_id = ?"
+        }
+
+        if (!$error_message) {
+            if ($action === "add") {
+                /* Insert a new product listing for this seller */
+                $image = $uploaded_image ?? "placeholder-clothing.jpg";
+                $ins = mysqli_prepare($conn,
+                    "INSERT INTO tblclothes (user_id, seller_id, name, brand, description, price, stock, image, created_at)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())"
+                );
+                if ($ins) {
+                    mysqli_stmt_bind_param($ins, "iisssdis",
+                        $user_id, $seller_id, $product_name, $brand, $description, $price, $stock, $image
                     );
-                    
-                    if ($updateStmt) {
-                        mysqli_stmt_bind_param($updateStmt, "sssdiii", $product_name, $brand, $description, $price, $stock, $product_id, $seller_id);
-                        
-                        if (mysqli_stmt_execute($updateStmt)) {
-                            $success_message = "Product updated successfully!";
-                        } else {
-                            $error_message = "Error updating product.";
-                        }
-                        mysqli_stmt_close($updateStmt);
+                    if (mysqli_stmt_execute($ins)) {
+                        $success_message = "Product added successfully!";
+                    } else {
+                        $error_message = "Error adding product: " . mysqli_error($conn);
                     }
-                } else {
-                    $error_message = "Product not found or you don't have permission to edit it.";
+                    mysqli_stmt_close($ins);
                 }
-                mysqli_stmt_close($checkStmt);
+            } elseif ($action === "edit") {
+                $product_id = (int)($_POST["product_id"] ?? 0);
+                $ownChk = mysqli_prepare($conn, "SELECT product_id FROM tblclothes WHERE product_id = ? AND seller_id = ?");
+                if ($ownChk) {
+                    mysqli_stmt_bind_param($ownChk, "ii", $product_id, $seller_id);
+                    mysqli_stmt_execute($ownChk);
+                    $owns = mysqli_num_rows(mysqli_stmt_get_result($ownChk)) > 0;
+                    mysqli_stmt_close($ownChk);
+
+                    if ($owns) {
+                        if ($uploaded_image) {
+                            /* Update product including new image */
+                            $upd = mysqli_prepare($conn,
+                                "UPDATE tblclothes SET name=?, brand=?, description=?, price=?, stock=?, image=?
+                                 WHERE product_id=? AND seller_id=?"
+                            );
+                            if ($upd) {
+                                mysqli_stmt_bind_param($upd, "sssdisii",
+                                    $product_name, $brand, $description, $price, $stock, $uploaded_image,
+                                    $product_id, $seller_id
+                                );
+                                $ok = mysqli_stmt_execute($upd);
+                                mysqli_stmt_close($upd);
+                                $success_message = $ok ? "Product updated!" : "Error updating product.";
+                            }
+                        } else {
+                            /* Update product without changing the image */
+                            $upd = mysqli_prepare($conn,
+                                "UPDATE tblclothes SET name=?, brand=?, description=?, price=?, stock=?
+                                 WHERE product_id=? AND seller_id=?"
+                            );
+                            if ($upd) {
+                                mysqli_stmt_bind_param($upd, "sssdiis",
+                                    $product_name, $brand, $description, $price, $stock,
+                                    $product_id, $seller_id
+                                );
+                                $ok = mysqli_stmt_execute($upd);
+                                mysqli_stmt_close($upd);
+                                if (!$ok) $error_message = "Error updating product.";
+                                else $success_message = "Product updated!";
+                            }
+                        }
+                    } else {
+                        $error_message = "Product not found or permission denied.";
+                    }
+                }
             }
         }
     }
 }
 
-// Fetch seller's products
+/* Fetch all products for this seller */
 $products = [];
 if ($seller_id) {
-    $productsStmt = mysqli_prepare($conn,
-        "SELECT product_id, name, brand, description, price, stock, created_at
+    $pStmt = mysqli_prepare($conn,
+        "SELECT product_id, name, brand, description, price, stock, image, created_at
          FROM tblclothes
          WHERE seller_id = ?
          ORDER BY created_at DESC"
     );
-    
-    if ($productsStmt) {
-        mysqli_stmt_bind_param($productsStmt, "i", $seller_id);
-        mysqli_stmt_execute($productsStmt);
-        $productsResult = mysqli_stmt_get_result($productsStmt);
-        
-        while ($product = mysqli_fetch_assoc($productsResult)) {
-            $products[] = $product;
-        }
-        mysqli_stmt_close($productsStmt);
+    if ($pStmt) {
+        mysqli_stmt_bind_param($pStmt, "i", $seller_id);
+        mysqli_stmt_execute($pStmt);
+        $pResult = mysqli_stmt_get_result($pStmt);
+        while ($row = mysqli_fetch_assoc($pResult)) $products[] = $row;
+        mysqli_stmt_close($pStmt);
     }
 }
 
-$edit_product = null;
-if (isset($_GET["edit"]) && is_numeric($_GET["edit"])) {
-    $product_id = (int)$_GET["edit"];
-    
-    // Find product
-    foreach ($products as $p) {
-        if ($p["product_id"] == $product_id) {
-            $edit_product = $p;
-            break;
-        }
-    }
+/* Fetch seller order stats */
+$orderCount = 0; $totalRevenue = 0.0;
+$oStmt = mysqli_query($conn,
+    "SELECT COUNT(DISTINCT ol.order_id) AS orders, COALESCE(SUM(ol.quantity * ol.unit_price),0) AS revenue
+     FROM tblorderline ol
+     JOIN tblclothes c ON ol.product_id = c.product_id
+     WHERE c.seller_id = $seller_id"
+);
+if ($oStmt) {
+    $oRow = mysqli_fetch_assoc($oStmt);
+    $orderCount   = (int)($oRow["orders"] ?? 0);
+    $totalRevenue = (float)($oRow["revenue"] ?? 0);
 }
 
 mysqli_close($conn);
@@ -198,600 +212,272 @@ mysqli_close($conn);
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
-  <title>Pastimes Â· Seller Dashboard</title>
-  <!-- Font Awesome 6 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pastimes · Seller Hub</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
+    *{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --bg:#f9f7f4;--white:#fff;--text:#1e2a2a;--muted:#8a9b9b;--sec:#5a6e6e;
+      --green:#2a6b5e;--dark:#1e5247;--rust:#c26743;--gold:#d4a259;
+      --border:#e8e6e1;--sm:0 4px 12px rgba(0,0,0,.03);--md:0 8px 24px rgba(0,0,0,.06);
+      --lg:24px;--md-r:16px;--sm-r:12px
     }
-
-    :root {
-      --bg-page: #f9f7f4;
-      --white: #ffffff;
-      --text-primary: #1e2a2a;
-      --text-secondary: #5a6e6e;
-      --text-muted: #8a9b9b;
-      --green: #2a6b5e;
-      --green-dark: #1e5247;
-      --rust: #c26743;
-      --gold: #d4a259;
-      --border: #e8e6e1;
-      --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.03);
-      --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06);
-      --radius-lg: 24px;
-      --radius-md: 16px;
-      --radius-sm: 12px;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background: var(--bg-page);
-      color: var(--text-primary);
-      line-height: 1.5;
-    }
-
-    .dashboard-container {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 1.2rem 1.5rem 2rem;
-    }
-
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+    .wrap{max-width:1400px;margin:0 auto;padding:1.2rem 1.5rem 2rem}
     /* header */
-    .site-header {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      margin-bottom: 1.8rem;
-      padding-bottom: 0.8rem;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .logo-area {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      cursor: pointer;
-    }
-
-    .logo-icon {
-      width: 42px;
-      height: 42px;
-      background: linear-gradient(135deg, var(--green), #3a8a7a);
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-size: 1.3rem;
-    }
-
-    .logo-text {
-      font-size: 1.6rem;
-      font-weight: 700;
-      letter-spacing: -0.3px;
-      color: var(--green);
-    }
-
-    .badge {
-      background: #eef3f1;
-      color: var(--green);
-      font-size: 0.7rem;
-      font-weight: 600;
-      padding: 4px 10px;
-      border-radius: 30px;
-      margin-left: 8px;
-    }
-
-    .seller-badge {
-      background: var(--gold);
-      color: #2a2a2a;
-    }
-
-    .nav-icons {
-      display: flex;
-      gap: 12px;
-    }
-
-    .icon-btn {
-      background: var(--white);
-      border: 1px solid var(--border);
-      width: 42px;
-      height: 42px;
-      border-radius: 30px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--text-secondary);
-      cursor: pointer;
-      transition: 0.2s;
-    }
-
-    .alert {
-      border-radius: var(--radius-sm);
-      padding: 0.85rem 1rem;
-      margin-bottom: 1rem;
-      font-size: 0.88rem;
-      border-left: 4px solid;
-      background: var(--white);
-    }
-
-    .alert-success {
-      color: #1b6f4e;
-      border-color: #1b6f4e;
-    }
-
-    .alert-error {
-      color: #9b3a25;
-      border-color: var(--rust);
-    }
-
-    /* stats cards */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 1.2rem;
-      margin-bottom: 2rem;
-    }
-
-    .stat-card {
-      background: var(--white);
-      border-radius: var(--radius-lg);
-      padding: 1.2rem 1rem;
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow-sm);
-    }
-
-    .stat-title {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      margin-bottom: 6px;
-    }
-
-    .stat-value {
-      font-size: 1.8rem;
-      font-weight: 700;
-      color: var(--green);
-    }
-
-    .stat-sub {
-      font-size: 0.7rem;
-      color: var(--text-secondary);
-      margin-top: 4px;
-    }
-
+    .hdr{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.5rem;padding-bottom:.8rem;border-bottom:1px solid var(--border)}
+    .logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+    .logo-ico{width:42px;height:42px;background:linear-gradient(135deg,var(--green),#3a8a7a);border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.3rem}
+    .logo-txt{font-size:1.5rem;font-weight:700;color:var(--green)}
+    .badge{background:#eef3f1;color:var(--green);font-size:.7rem;font-weight:600;padding:4px 10px;border-radius:30px;margin-left:8px}
+    .badge-gold{background:var(--gold);color:#2a2a2a}
+    .nav{display:flex;gap:8px;flex-wrap:wrap}
+    .nav a{text-decoration:none;padding:8px 14px;border-radius:40px;font-size:.82rem;font-weight:600;border:1px solid var(--border);color:var(--sec);background:#fff;transition:.2s}
+    .nav a:hover,.nav a.active{background:var(--green);color:#fff;border-color:var(--green)}
+    /* alerts */
+    .alert{border-radius:var(--sm-r);padding:.8rem 1rem;margin-bottom:1rem;font-size:.88rem;border-left:4px solid}
+    .alert-ok{color:#1b6f4e;border-color:#1b6f4e;background:#f0fbf6}
+    .alert-err{color:#9b3a25;border-color:var(--rust);background:#fdf3ef}
+    /* stats */
+    .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:1.5rem}
+    .stat{background:var(--white);border:1px solid var(--border);border-radius:var(--lg);padding:1.1rem;box-shadow:var(--sm)}
+    .stat-lbl{font-size:.78rem;color:var(--muted);margin-bottom:4px}
+    .stat-val{font-size:1.7rem;font-weight:700;color:var(--green)}
     /* tabs */
-    .tabs {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 1.5rem;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 0.5rem;
-    }
-
-    .tab-btn {
-      background: none;
-      border: none;
-      padding: 10px 20px;
-      font-weight: 600;
-      font-size: 0.9rem;
-      color: var(--text-secondary);
-      cursor: pointer;
-      border-radius: 40px;
-      transition: 0.2s;
-    }
-
-    .tab-btn.active {
-      background: var(--green);
-      color: white;
-    }
-
-    /* product table / grid */
-    .products-section, .orders-section {
-      background: var(--white);
-      border-radius: var(--radius-lg);
-      border: 1px solid var(--border);
-      overflow-x: auto;
-      padding: 1rem;
-    }
-
-    .add-product-bar {
-      display: flex;
-      justify-content: flex-end;
-      margin-bottom: 1rem;
-    }
-
-    .btn-primary {
-      background: var(--green);
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 40px;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .btn-outline {
-      background: transparent;
-      border: 1px solid var(--border);
-      padding: 6px 14px;
-      border-radius: 30px;
-      cursor: pointer;
-      font-size: 0.75rem;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-
-    th, td {
-      padding: 12px 10px;
-      text-align: left;
-      border-bottom: 1px solid var(--border);
-    }
-
-    th {
-      font-weight: 600;
-      color: var(--text-secondary);
-      font-size: 0.8rem;
-    }
-
-    .product-img-small {
-      width: 48px;
-      height: 48px;
-      background: #edece4;
-      border-radius: var(--radius-sm);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--green);
-    }
-
-    .status-badge {
-      background: #e8f5f2;
-      color: var(--green);
-      padding: 4px 10px;
-      border-radius: 30px;
-      font-size: 0.7rem;
-      font-weight: 600;
-      display: inline-block;
-    }
-
-    .status-sold {
-      background: #fef2e8;
-      color: var(--rust);
-    }
-
-    .action-icons i {
-      margin: 0 4px;
-      cursor: pointer;
-      color: var(--text-muted);
-      transition: 0.2s;
-    }
-
-    .action-icons i:hover {
-      color: var(--rust);
-    }
-
+    .tabs{display:flex;gap:8px;margin-bottom:1.2rem;border-bottom:1px solid var(--border);padding-bottom:.5rem}
+    .tab{background:none;border:none;padding:10px 20px;font-weight:600;font-size:.9rem;color:var(--sec);cursor:pointer;border-radius:40px;transition:.2s}
+    .tab.active{background:var(--green);color:#fff}
+    /* panel */
+    .panel{background:var(--white);border:1px solid var(--border);border-radius:var(--lg);padding:1.2rem;overflow-x:auto}
+    .bar{display:flex;justify-content:flex-end;margin-bottom:1rem}
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border-radius:40px;font-weight:600;font-size:.85rem;cursor:pointer;border:1px solid transparent;transition:.2s}
+    .btn-primary{background:var(--green);color:#fff;border:none}
+    .btn-primary:hover{background:var(--dark)}
+    .btn-outline{background:transparent;border-color:var(--border);color:var(--sec)}
+    .btn-outline:hover{background:var(--bg)}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:10px;text-align:left;border-bottom:1px solid var(--border);font-size:.85rem;vertical-align:middle}
+    th{font-weight:600;color:var(--sec);font-size:.78rem;background:#fcfbf9}
+    .prod-thumb{width:48px;height:48px;border-radius:var(--sm-r);object-fit:cover;background:#edece4;display:flex;align-items:center;justify-content:center;color:var(--green)}
+    .prod-thumb img{width:48px;height:48px;border-radius:var(--sm-r);object-fit:cover}
+    .sbadge{display:inline-block;padding:3px 10px;border-radius:30px;font-size:.7rem;font-weight:600;background:#e8f5f2;color:var(--green)}
+    .sbadge.out{background:#fef2e8;color:var(--rust)}
+    .act i{margin:0 4px;cursor:pointer;color:var(--muted);transition:.2s}
+    .act i:hover{color:var(--rust)}
     /* modal */
-    .modal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.5);
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-    }
-    .modal-content {
-      background: var(--white);
-      max-width: 500px;
-      width: 90%;
-      border-radius: var(--radius-lg);
-      padding: 1.8rem;
-    }
-    .modal input, .modal select, .modal textarea {
-      width: 100%;
-      padding: 10px;
-      margin: 8px 0 16px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-    }
-    .modal-buttons {
-      display: flex;
-      gap: 12px;
-      justify-content: flex-end;
-    }
-
-    @media (max-width: 700px) {
-      .dashboard-container {
-        padding: 1rem;
-      }
-      th, td {
-        font-size: 0.75rem;
-        padding: 8px 6px;
-      }
-    }
+    .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);align-items:center;justify-content:center;z-index:1000}
+    .modal.open{display:flex}
+    .modal-box{background:#fff;max-width:520px;width:90%;border-radius:var(--lg);padding:2rem;max-height:90vh;overflow-y:auto}
+    .modal-box h3{margin-bottom:1.2rem;font-size:1.1rem}
+    label{font-size:.82rem;font-weight:600;color:var(--sec)}
+    input[type=text],input[type=number],textarea,input[type=file]{width:100%;padding:9px 12px;margin:5px 0 14px;border:1px solid var(--border);border-radius:var(--sm-r);font-size:.88rem;font-family:inherit}
+    input[type=file]{padding:6px}
+    .thumb-preview{width:80px;height:80px;object-fit:cover;border-radius:var(--sm-r);display:none;margin-bottom:10px}
+    .modal-btns{display:flex;gap:10px;justify-content:flex-end;margin-top:.5rem}
+    .empty{padding:2rem;text-align:center;color:var(--muted);font-size:.9rem}
+    .empty i{font-size:2rem;margin-bottom:.5rem;display:block;opacity:.4}
+    /* approval notice */
+    .notice{background:#fef9ec;border:1px solid #f0d88a;border-radius:var(--md-r);padding:1rem;margin-bottom:1.2rem;font-size:.88rem;color:#7a5a10}
+    @media(max-width:700px){th,td{font-size:.75rem;padding:7px 6px}.stats{grid-template-columns:1fr 1fr}}
   </style>
 </head>
 <body>
-<div class="dashboard-container">
-  <!-- header -->
-  <header class="site-header">
-    <a class="logo-area" href="shop.php" style="text-decoration:none;">
-      <div class="logo-icon"><i class="fas fa-vest"></i></div>
-      <div>
-        <span class="logo-text">Pastimes</span>
-        <span class="badge seller-badge"><i class="fas fa-store"></i> Seller Hub</span>
-      </div>
+<div class="wrap">
+  <header class="hdr">
+    <a class="logo" href="shop.php">
+      <div class="logo-ico"><i class="fas fa-vest"></i></div>
+      <div><span class="logo-txt">Pastimes</span><span class="badge badge-gold"><i class="fas fa-store"></i> Seller Hub</span></div>
     </a>
-    <div class="nav-icons">
-      <button class="icon-btn" id="logoutBtn" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
-    </div>
+    <nav class="nav">
+      <a href="shop.php">Shop</a>
+      <a href="checkout.php"><i class="fas fa-shopping-cart"></i> Cart</a>
+      <a href="my_orders.php">My Orders</a>
+      <a href="messages.php"><i class="fas fa-envelope"></i> Messages</a>
+      <a href="logout.php">Logout</a>
+    </nav>
   </header>
 
-  <?php if ($error_message): ?>
-    <div class="alert alert-error"><?php echo htmlspecialchars($error_message); ?></div>
+  <?php if ($seller_status !== "approved"): ?>
+    <div class="notice"><i class="fas fa-hourglass-half"></i>
+      Your seller account is <strong><?php echo htmlspecialchars($seller_status); ?></strong>.
+      You can set up your listings, but they will only appear in the shop once an admin approves your account.
+    </div>
   <?php endif; ?>
 
-  <?php if ($success_message): ?>
-    <div class="alert alert-success"><?php echo htmlspecialchars($success_message); ?></div>
-  <?php endif; ?>
+  <?php if ($error_message): ?><div class="alert alert-err"><i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($error_message); ?></div><?php endif; ?>
+  <?php if ($success_message): ?><div class="alert alert-ok"><i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($success_message); ?></div><?php endif; ?>
 
-  <!-- stats cards -->
-  <div class="stats-grid">
-    <div class="stat-card">
-      <div class="stat-title">Total Products</div>
-      <div class="stat-value" id="totalProducts">0</div>
-      <div class="stat-sub">active listings</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-title">Total Sales</div>
-      <div class="stat-value" id="totalSales">$0</div>
-      <div class="stat-sub">lifetime revenue</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-title">Orders</div>
-      <div class="stat-value" id="orderCount">0</div>
-      <div class="stat-sub">completed</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-title">Avg Rating</div>
-      <div class="stat-value" id="avgRating">0.0</div>
-      <div class="stat-sub">â­ from buyers</div>
-    </div>
+  <div class="stats">
+    <div class="stat"><div class="stat-lbl">Total Products</div><div class="stat-val"><?php echo count($products); ?></div></div>
+    <div class="stat"><div class="stat-lbl">Lifetime Revenue</div><div class="stat-val">$<?php echo number_format($totalRevenue, 2); ?></div></div>
+    <div class="stat"><div class="stat-lbl">Orders</div><div class="stat-val"><?php echo $orderCount; ?></div></div>
+    <div class="stat"><div class="stat-lbl">Brand</div><div class="stat-val" style="font-size:1rem;padding-top:.4rem"><?php echo htmlspecialchars($seller_brand ?? "—"); ?></div></div>
   </div>
 
-  <!-- tabs -->
   <div class="tabs">
-    <button class="tab-btn active" data-tab="products">ðŸ“¦ My Products</button>
-    <button class="tab-btn" data-tab="orders">ðŸ“‹ Sales & Orders</button>
+    <button class="tab active" data-tab="products"><i class="fas fa-boxes"></i> My Products</button>
+    <button class="tab" data-tab="orders"><i class="fas fa-receipt"></i> Sales & Orders</button>
   </div>
 
-  <!-- products panel -->
-  <div id="productsPanel" class="products-section">
-    <div class="add-product-bar">
-      <button class="btn-primary" id="addProductBtn"><i class="fas fa-plus"></i> Add New Item</button>
+  <!-- Products panel -->
+  <div id="tab-products" class="panel">
+    <div class="bar">
+      <button class="btn btn-primary" id="btnAdd"><i class="fas fa-plus"></i> Add New Item</button>
     </div>
-    <div style="overflow-x: auto;">
-      <table id="productsTable">
-        <thead>
-          <tr><th>Image</th><th>Product</th><th>Price</th><th>Status</th><th>Sales</th><th>Actions</th></tr>
-        </thead>
-        <tbody id="productsTableBody"></tbody>
-      </table>
-    </div>
+    <?php if (count($products) === 0): ?>
+      <div class="empty"><i class="fas fa-tshirt"></i>No products yet. Add your first listing.</div>
+    <?php else: ?>
+    <table>
+      <thead><tr><th>Image</th><th>Product</th><th>Price</th><th>Stock</th><th>Actions</th></tr></thead>
+      <tbody>
+        <?php foreach ($products as $p):
+          $hasImg = !empty($p["image"]) && $p["image"] !== "placeholder-clothing.jpg"
+                    && file_exists(__DIR__ . "/../uploads/" . $p["image"]);
+        ?>
+        <tr>
+          <td>
+            <div class="prod-thumb">
+              <?php if ($hasImg): ?>
+                <img src="../uploads/<?php echo htmlspecialchars($p["image"]); ?>" alt="">
+              <?php else: ?>
+                <div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;background:#edece4;border-radius:8px;color:var(--green)"><i class="fas fa-tshirt"></i></div>
+              <?php endif; ?>
+            </div>
+          </td>
+          <td>
+            <strong><?php echo htmlspecialchars($p["name"]); ?></strong><br>
+            <small style="color:var(--muted)"><?php echo htmlspecialchars($p["brand"] ?? ""); ?></small>
+          </td>
+          <td>$<?php echo number_format((float)$p["price"], 2); ?></td>
+          <td>
+            <span class="sbadge <?php echo (int)$p["stock"] === 0 ? 'out' : ''; ?>">
+              <?php echo (int)$p["stock"] > 0 ? (int)$p["stock"] . ' in stock' : 'Out of stock'; ?>
+            </span>
+          </td>
+          <td class="act">
+            <i class="fas fa-edit" data-id="<?php echo (int)$p["product_id"]; ?>"
+               data-name="<?php echo htmlspecialchars($p["name"], ENT_QUOTES); ?>"
+               data-brand="<?php echo htmlspecialchars($p["brand"] ?? "", ENT_QUOTES); ?>"
+               data-desc="<?php echo htmlspecialchars($p["description"] ?? "", ENT_QUOTES); ?>"
+               data-price="<?php echo (float)$p["price"]; ?>"
+               data-stock="<?php echo (int)$p["stock"]; ?>"
+               title="Edit"></i>
+            <a href="sellers_hub.php?delete=<?php echo (int)$p["product_id"]; ?>"
+               onclick="return confirm('Delete this product?')" style="color:var(--muted)">
+              <i class="fas fa-trash-alt" title="Delete"></i>
+            </a>
+          </td>
+        </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+    <?php endif; ?>
   </div>
 
-  <!-- orders panel (hidden initially) -->
-  <div id="ordersPanel" class="orders-section" style="display: none;">
-    <h3 style="margin-bottom: 1rem;"><i class="fas fa-truck"></i> Recent orders</h3>
-    <div style="overflow-x: auto;">
-      <table>
-        <thead><tr><th>Order ID</th><th>Product</th><th>Buyer</th><th>Qty</th><th>Total</th><th>Date</th><th>Status</th></tr></thead>
-        <tbody id="ordersTableBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- add/edit product modal -->
-  <div id="productModal" class="modal">
-    <form id="productForm" method="POST" action="sellers_hub.php" class="modal-content">
-      <h3 id="modalTitle">Add New Product</h3>
-      <input type="hidden" id="productAction" name="action" value="add">
-      <input type="hidden" id="editProductId" name="product_id">
-      <label>Product Name</label>
-      <input type="text" id="productName" name="product_name" placeholder="e.g., Organic Cotton Tee" required>
-      <label>Brand</label>
-      <input type="text" id="productBrand" name="brand" value="<?php echo htmlspecialchars($seller_brand ?? ""); ?>">
-      <label>Description</label>
-      <textarea id="productDescription" name="description" rows="4" placeholder="Describe the item, fabric, fit, and condition."></textarea>
-      <label>Price ($)</label>
-      <input type="number" id="productPrice" name="price" step="0.01" min="0.01" placeholder="29.99" required>
-      <label>Stock</label>
-      <input type="number" id="productStock" name="stock" min="0" value="10" required>
-      <div class="modal-buttons">
-        <button type="button" class="btn-outline" id="closeModalBtn">Cancel</button>
-        <button type="submit" class="btn-primary" id="saveProductBtn">Save Product</button>
-      </div>
-    </form>
+  <!-- Orders panel -->
+  <div id="tab-orders" class="panel" style="display:none">
+    <p style="color:var(--muted);font-size:.9rem">Order details are managed by the admin. Visit <a href="messages.php" style="color:var(--green)">Messages</a> to contact support.</p>
   </div>
 </div>
 
+<!-- Add/Edit product modal -->
+<div id="modal" class="modal">
+  <form id="productForm" method="POST" action="sellers_hub.php" enctype="multipart/form-data" class="modal-box">
+    <h3 id="modalTitle">Add New Product</h3>
+    <input type="hidden" id="fAction" name="action" value="add">
+    <input type="hidden" id="fProductId" name="product_id" value="">
+
+    <label>Product Name *</label>
+    <input type="text" id="fName" name="product_name" placeholder="e.g. Organic Cotton Tee" required>
+
+    <label>Brand</label>
+    <input type="text" id="fBrand" name="brand" value="<?php echo htmlspecialchars($seller_brand ?? ""); ?>">
+
+    <label>Description</label>
+    <textarea id="fDesc" name="description" rows="3" placeholder="Describe the item, fabric, fit, condition…"></textarea>
+
+    <label>Price ($) *</label>
+    <input type="number" id="fPrice" name="price" step="0.01" min="0.01" placeholder="29.99" required>
+
+    <label>Stock *</label>
+    <input type="number" id="fStock" name="stock" min="0" value="10" required>
+
+    <label>Product Image</label>
+    <img id="imgPreview" class="thumb-preview" src="" alt="Preview">
+    <input type="file" name="product_image" id="fImage" accept="image/jpeg,image/png,image/gif,image/webp">
+    <small style="color:var(--muted);font-size:.75rem">JPG, PNG, GIF or WEBP. Leave blank to keep existing image.</small>
+
+    <div class="modal-btns" style="margin-top:1rem">
+      <button type="button" class="btn btn-outline" id="btnClose">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save Product</button>
+    </div>
+  </form>
+</div>
+
 <script>
-  const sellerBrand = <?php echo json_encode($seller_brand ?? ""); ?>;
-  const sellerProducts = <?php echo json_encode(array_map(function ($product) {
-    return [
-      "id" => (int)$product["product_id"],
-      "name" => $product["name"] ?? "",
-      "brand" => $product["brand"] ?? "",
-      "description" => $product["description"] ?? "",
-      "price" => (float)$product["price"],
-      "stock" => (int)$product["stock"],
-      "icon" => "fa-tshirt",
-      "sales" => 0,
-    ];
-  }, $products), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
-  const salesOrders = [];
+  const defaultBrand = <?php echo json_encode($seller_brand ?? ""); ?>;
 
-  // Helper: update dashboard stats
-  function updateStats() {
-    const totalProductsCount = sellerProducts.length;
-    const totalRevenue = salesOrders.reduce((sum, order) => sum + order.total, 0);
-    const orderCount = salesOrders.length;
-    const avgRating = 0;
-
-    document.getElementById('totalProducts').innerText = totalProductsCount;
-    document.getElementById('totalSales').innerText = `$${totalRevenue.toFixed(2)}`;
-    document.getElementById('orderCount').innerText = orderCount;
-    document.getElementById('avgRating').innerText = avgRating.toFixed(1);
-  }
-
-  // render products table
-  function renderProducts() {
-    const tbody = document.getElementById('productsTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
-
-    if (sellerProducts.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6">No products yet. Add your first listing.</td></tr>';
-      return;
-    }
-
-    sellerProducts.forEach(product => {
-      const row = tbody.insertRow();
-      row.innerHTML = `
-        <td><div class="product-img-small"><i class="fas ${product.icon}"></i></div></td>
-        <td><strong>${escapeHtml(product.name)}</strong><br><small>${escapeHtml(product.brand || sellerBrand)}</small></td>
-        <td>$${product.price.toFixed(2)}</td>
-        <td><span class="status-badge ${product.stock === 0 ? 'status-sold' : ''}">${product.stock > 0 ? 'In stock' : 'Out of stock'}</span></td>
-        <td>${product.sales || 0}</td>
-        <td class="action-icons">
-          <i class="fas fa-edit" data-id="${product.id}" title="Edit"></i>
-          <i class="fas fa-trash-alt" data-id="${product.id}" title="Delete"></i>
-        </td>
-      `;
-    });
-
-    // attach edit/delete events
-    document.querySelectorAll('.fa-edit').forEach(icon => {
-      icon.addEventListener('click', (e) => {
-        const id = parseInt(icon.getAttribute('data-id'));
-        editProduct(id);
-      });
-    });
-    document.querySelectorAll('.fa-trash-alt').forEach(icon => {
-      icon.addEventListener('click', (e) => {
-        const id = parseInt(icon.getAttribute('data-id'));
-        if (confirm('Delete this product? It will also affect sales records.')) {
-          window.location.href = 'sellers_hub.php?delete=' + encodeURIComponent(id);
-        }
-      });
-    });
-  }
-
-  function renderOrders() {
-    const tbody = document.getElementById('ordersTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
-    salesOrders.forEach(order => {
-      const row = tbody.insertRow();
-      row.innerHTML = `
-        <td>${order.id}</td>
-        <td>${escapeHtml(order.productName)}</td>
-        <td>${order.buyer}</td>
-        <td>${order.qty}</td>
-        <td>$${order.total.toFixed(2)}</td>
-        <td>${order.date}</td>
-        <td><span class="status-badge">${order.status}</span></td>
-      `;
-    });
-  }
-
-  function editProduct(id) {
-    const product = sellerProducts.find(p => p.id === id);
-    if (!product) return;
-    document.getElementById('modalTitle').innerText = 'Edit Product';
-    document.getElementById('productAction').value = 'edit';
-    document.getElementById('editProductId').value = product.id;
-    document.getElementById('productName').value = product.name;
-    document.getElementById('productBrand').value = product.brand || sellerBrand;
-    document.getElementById('productDescription').value = product.description || '';
-    document.getElementById('productPrice').value = product.price;
-    document.getElementById('productStock').value = product.stock;
-    document.getElementById('productModal').style.display = 'flex';
-  }
-
-  function closeModal() {
-    document.getElementById('productModal').style.display = 'none';
-    document.getElementById('productAction').value = 'add';
-    document.getElementById('editProductId').value = '';
-    document.getElementById('productName').value = '';
-    document.getElementById('productBrand').value = sellerBrand;
-    document.getElementById('productDescription').value = '';
-    document.getElementById('productPrice').value = '';
-    document.getElementById('productStock').value = '10';
-  }
-
-  function escapeHtml(str) { return String(str || '').replace(/[&<>]/g, function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
-
-  // tab switching
-  const productsPanel = document.getElementById('productsPanel');
-  const ordersPanel = document.getElementById('ordersPanel');
-  document.querySelectorAll('.tab-btn').forEach(btn => {
+  /* Tab switching */
+  document.querySelectorAll('.tab').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      const tab = btn.getAttribute('data-tab');
-      if (tab === 'products') {
-        productsPanel.style.display = 'block';
-        ordersPanel.style.display = 'none';
-        renderProducts();
-      } else {
-        productsPanel.style.display = 'none';
-        ordersPanel.style.display = 'block';
-        renderOrders();
-      }
+      const id = 'tab-' + btn.dataset.tab;
+      document.querySelectorAll('.panel').forEach(p => p.style.display = 'none');
+      document.getElementById(id).style.display = 'block';
     });
   });
 
-  // modal handlers
-  document.getElementById('addProductBtn').addEventListener('click', () => {
-    document.getElementById('modalTitle').innerText = 'Add New Product';
-    document.getElementById('productAction').value = 'add';
-    document.getElementById('editProductId').value = '';
-    document.getElementById('productName').value = '';
-    document.getElementById('productBrand').value = sellerBrand;
-    document.getElementById('productDescription').value = '';
-    document.getElementById('productPrice').value = '';
-    document.getElementById('productStock').value = '5';
-    document.getElementById('productModal').style.display = 'flex';
-  });
-  document.getElementById('closeModalBtn').addEventListener('click', closeModal);
-  window.addEventListener('click', (e) => { if (e.target === document.getElementById('productModal')) closeModal(); });
+  /* Modal helpers */
+  function openModal(title, action, data) {
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('fAction').value = action;
+    document.getElementById('fProductId').value = data.id || '';
+    document.getElementById('fName').value = data.name || '';
+    document.getElementById('fBrand').value = data.brand || defaultBrand;
+    document.getElementById('fDesc').value = data.desc || '';
+    document.getElementById('fPrice').value = data.price || '';
+    document.getElementById('fStock').value = data.stock ?? 10;
+    document.getElementById('imgPreview').style.display = 'none';
+    document.getElementById('fImage').value = '';
+    document.getElementById('modal').classList.add('open');
+  }
+  function closeModal() {
+    document.getElementById('modal').classList.remove('open');
+  }
 
-  // logout
-  document.getElementById('logoutBtn').addEventListener('click', () => {
-    window.location.href = "logout.php";
+  document.getElementById('btnAdd').addEventListener('click', () => openModal('Add New Product', 'add', {}));
+  document.getElementById('btnClose').addEventListener('click', closeModal);
+  document.getElementById('modal').addEventListener('click', e => { if (e.target === document.getElementById('modal')) closeModal(); });
+
+  /* Edit buttons */
+  document.querySelectorAll('.fa-edit').forEach(icon => {
+    icon.addEventListener('click', () => {
+      openModal('Edit Product', 'edit', {
+        id:    icon.dataset.id,
+        name:  icon.dataset.name,
+        brand: icon.dataset.brand,
+        desc:  icon.dataset.desc,
+        price: icon.dataset.price,
+        stock: icon.dataset.stock,
+      });
+    });
   });
 
-  // initial render
-  renderProducts();
-  updateStats();
-  renderOrders(); // preload orders data
+  /* Image preview before upload */
+  document.getElementById('fImage').addEventListener('change', function () {
+    const file = this.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const prev = document.getElementById('imgPreview');
+        prev.src = e.target.result;
+        prev.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+  });
 </script>
 </body>
 </html>
-

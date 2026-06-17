@@ -41,7 +41,7 @@ CREATE TABLE `tbladmin` (
 
 CREATE TABLE `tblclothes` (
   `product_id` int(11) NOT NULL COMMENT 'AUTO_INCREMENT',
-  `user_id` int(11) NOT NULL,
+  `user_id` int(11) DEFAULT NULL,
   `seller_id` int(11) DEFAULT NULL,
   `name` varchar(100) NOT NULL,
   `description` text NOT NULL,

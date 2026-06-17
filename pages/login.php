@@ -1,10 +1,12 @@
 <?php
+/* Login page – handles both customer and admin authentication */
 session_start();
 error_reporting(E_ALL);
 ini_set("display_errors", 1);
 
 require_once __DIR__ . "/../config/DBConn.php";
 
+/* Redirect already-logged-in users away from this page */
 if (isset($_SESSION["user_id"])) {
     if (($_SESSION["role"] ?? "") === "admin") {
         header("Location: admin.php");
@@ -14,15 +16,18 @@ if (isset($_SESSION["user_id"])) {
     exit;
 }
 
+/* $message holds any feedback text; $messageType is 'error' or 'success' */
 $message = "";
 $messageType = "";
 
-if (isset($_GET["registered"]) && $_GET["registered"] === "1") {
-    $message = "Account created successfully. Please log in.";
+/* Show a notice if returning from an admin-approved redirect (future use) */
+if (isset($_GET["verified"]) && $_GET["verified"] === "1") {
+    $message = "Your account has been verified. You can now log in.";
     $messageType = "success";
 }
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    /* Sanitise form input before any DB interaction */
     $username = trim($_POST["username"] ?? "");
     $password = $_POST["password"] ?? "";
 
@@ -32,6 +37,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     } else {
         $loggedIn = false;
 
+        /* Step 1: Check tblUser for a matching customer account */
         $userStmt = mysqli_prepare($conn, "SELECT user_id, name, username, password, status FROM tblUser WHERE username = ? LIMIT 1");
         if ($userStmt) {
             mysqli_stmt_bind_param($userStmt, "s", $username);
@@ -42,9 +48,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             if ($user) {
                 if (($user["status"] ?? "") !== "active") {
-                    $message = "Account not verified";
+                    /* User registered but admin has not yet verified the account */
+                    $message = "Your account is pending admin approval. Please wait for verification before logging in.";
                     $messageType = "error";
                 } else {
+                    /* Validate the supplied password against the stored bcrypt hash */
                     $isValid = password_verify($password, $user["password"]);
 
                     if ($isValid) {
@@ -65,6 +73,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
         }
 
+        /* Step 2: If no customer matched (or customer login failed), check tbladmin */
         if (!$loggedIn && $message === "") {
             $adminStmt = mysqli_prepare($conn, "SELECT admin_id, username, password FROM tbladmin WHERE username = ? LIMIT 1");
             if ($adminStmt) {

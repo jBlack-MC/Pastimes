@@ -45,17 +45,19 @@ if ($cartStmt) {
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
     :root {
-      --sand: #f6efe5;
-      --paper: #fffaf4;
-      --ink: #1f1a17;
-      --muted: #6e635a;
-      --rust: #bf5a36;
-      --forest: #1f5a4d;
-      --gold: #d7a85f;
-      --line: rgba(31, 26, 23, 0.12);
-      --shadow: 0 18px 45px rgba(31, 26, 23, 0.12);
+      --bg: #f9f7f4;
+      --white: #fff;
+      --text: #1e2a2a;
+      --sec: #5a6e6e;
+      --muted: #8a9b9b;
+      --green: #2a6b5e;
+      --dark: #1e5247;
+      --rust: #c26743;
+      --gold: #d4a259;
+      --border: #e8e6e1;
+      --shadow: 0 12px 28px rgba(0,0,0,.06);
       --radius-lg: 28px;
-      --radius-md: 18px;
+      --radius-md: 16px;
       --radius-sm: 12px;
     }
 
@@ -66,17 +68,17 @@ if ($cartStmt) {
     }
 
     body {
-      font-family: system-ui, "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
-      color: var(--ink);
-      background: linear-gradient(180deg, #fcf7f0 0%, #f5ede2 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--text);
+      background: var(--bg);
       min-height: 100vh;
       line-height: 1.5;
     }
 
     .app-wrapper {
-      max-width: 1280px;
+      max-width: 1200px;
       margin: 0 auto;
-      padding: 0 1rem 2rem;
+      padding: 1.2rem 1rem 2rem;
     }
 
     .top-bar {
@@ -84,38 +86,38 @@ if ($cartStmt) {
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      padding: 0.8rem 1.2rem;
-      background: rgba(255, 250, 244, 0.92);
-      border: 1px solid rgba(255, 255, 255, 0.8);
-      border-radius: 60px;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 6px 18px rgba(31, 26, 23, 0.05);
-      margin-bottom: 1.8rem;
+      padding: 0.9rem 1rem;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
+      margin-bottom: 1rem;
     }
 
     .logo-area {
       display: flex;
       align-items: center;
       gap: 10px;
+      text-decoration: none;
     }
 
     .logo-icon {
-      width: 42px;
-      height: 42px;
-      border-radius: 30px;
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, var(--forest), #2f7968);
+      background: linear-gradient(135deg, var(--green), #3a8a7a);
       color: white;
-      font-size: 1.4rem;
+      font-size: 1.2rem;
     }
 
     .logo-text {
-      font-weight: 800;
-      font-size: 1.6rem;
-      letter-spacing: -0.02em;
-      color: var(--forest);
+      font-weight: 700;
+      font-size: 1.45rem;
+      letter-spacing: -0.3px;
+      color: var(--green);
     }
 
     .nav-actions {
@@ -125,8 +127,8 @@ if ($cartStmt) {
     }
 
     .nav-icon-btn {
-      background: rgba(255, 250, 244, 0.8);
-      border: 1px solid var(--line);
+      background: var(--white);
+      border: 1px solid var(--border);
       width: 42px;
       height: 42px;
       border-radius: 50px;
@@ -134,7 +136,7 @@ if ($cartStmt) {
       align-items: center;
       justify-content: center;
       font-size: 1.2rem;
-      color: var(--ink);
+      color: var(--text);
       cursor: pointer;
       transition: all 0.15s;
       text-decoration: none;
@@ -147,7 +149,7 @@ if ($cartStmt) {
     }
 
     .breadcrumb a {
-      color: var(--forest);
+      color: var(--green);
       text-decoration: none;
       font-weight: 600;
     }
@@ -164,7 +166,7 @@ if ($cartStmt) {
     }
 
     .cart-items-card {
-      background: var(--paper);
+      background: var(--white);
       border-radius: var(--radius-lg);
       padding: 1.5rem;
       box-shadow: var(--shadow);
@@ -176,7 +178,7 @@ if ($cartStmt) {
       justify-content: space-between;
       align-items: center;
       padding: 1.2rem;
-      border: 1px solid var(--line);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
       margin-bottom: 1rem;
       gap: 1rem;
@@ -211,7 +213,7 @@ if ($cartStmt) {
     .qty-input {
       width: 60px;
       padding: 0.5rem;
-      border: 1px solid var(--line);
+      border: 1px solid var(--border);
       border-radius: 6px;
       text-align: center;
       font-weight: 600;
@@ -239,7 +241,7 @@ if ($cartStmt) {
     }
 
     .order-summary {
-      background: var(--paper);
+      background: var(--white);
       border-radius: var(--radius-lg);
       padding: 1.5rem;
       box-shadow: var(--shadow);
@@ -257,7 +259,7 @@ if ($cartStmt) {
       display: flex;
       justify-content: space-between;
       padding: 0.6rem 0;
-      border-bottom: 1px solid var(--line);
+      border-bottom: 1px solid var(--border);
     }
 
     .summary-total {
@@ -268,7 +270,7 @@ if ($cartStmt) {
       color: var(--rust);
       margin-top: 1rem;
       padding-top: 0.8rem;
-      border-top: 2px solid var(--ink);
+      border-top: 2px solid var(--text);
     }
 
     .btn {
@@ -286,7 +288,7 @@ if ($cartStmt) {
     }
 
     .btn-primary {
-      background: var(--forest);
+      background: var(--green);
       color: white;
       width: 100%;
       font-size: 1rem;
@@ -300,14 +302,14 @@ if ($cartStmt) {
 
     .btn-secondary {
       background: transparent;
-      color: var(--forest);
-      border: 1px solid var(--line);
+      color: var(--green);
+      border: 1px solid var(--border);
       width: 100%;
       margin-top: 0.5rem;
     }
 
     .btn-secondary:hover {
-      background: var(--sand);
+      background: var(--bg);
     }
 
     .empty-cart {
@@ -326,7 +328,7 @@ if ($cartStmt) {
       position: fixed;
       bottom: 2rem;
       right: 2rem;
-      background: var(--forest);
+      background: var(--green);
       color: white;
       padding: 1rem 1.5rem;
       border-radius: 50px;
@@ -383,7 +385,7 @@ if ($cartStmt) {
     <!-- Header -->
     <div class="top-bar">
       <div class="logo-area">
-        <div class="logo-icon">👔</div>
+        <div class="logo-icon"><i class="fas fa-vest"></i></div>
         <div class="logo-text">Pastimes</div>
       </div>
       <nav class="nav-actions">

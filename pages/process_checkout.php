@@ -31,7 +31,19 @@ $delivery_address = "";
 $error_message = "";
 $success = false;
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
+/* PRG pattern: after a successful order POST, we redirect here with ?confirmed=1
+   and read the order details from the session to avoid duplicate orders on browser refresh */
+if (isset($_GET["confirmed"]) && isset($_SESSION["last_order"])) {
+    $last = $_SESSION["last_order"];
+    $order_id        = $last["order_id"];
+    $order_number    = $last["order_number"];
+    $total_price     = $last["total_price"];
+    $delivery_address = $last["delivery_address"];
+    $success = true;
+    unset($_SESSION["last_order"]); // consume once – prevents re-display on refresh
+}
+
+if (!$success && $_SERVER["REQUEST_METHOD"] === "POST") {
     // Get delivery address
     $delivery_address = trim($_POST["delivery_address"] ?? "");
     
@@ -163,8 +175,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             
             // Commit transaction
             mysqli_commit($conn);
-            $success = true;
-            
+
+            /* Store order details in session and redirect – PRG prevents duplicate orders on refresh */
+            $_SESSION["last_order"] = [
+                "order_id"        => $order_id,
+                "order_number"    => $order_number,
+                "total_price"     => $total_price,
+                "delivery_address"=> $delivery_address,
+            ];
+            mysqli_close($conn);
+            header("Location: process_checkout.php?confirmed=1");
+            exit;
+
         } catch (Exception $e) {
             // Rollback on error
             mysqli_rollback($conn);
@@ -214,24 +236,26 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     :root {
-      --sand: #f6efe5;
-      --paper: #fffaf4;
-      --ink: #1f1a17;
-      --muted: #6e635a;
-      --rust: #bf5a36;
-      --forest: #1f5a4d;
-      --gold: #d7a85f;
-      --line: rgba(31, 26, 23, 0.12);
-      --shadow: 0 18px 45px rgba(31, 26, 23, 0.12);
+      --bg: #f9f7f4;
+      --white: #fff;
+      --text: #1e2a2a;
+      --sec: #5a6e6e;
+      --muted: #8a9b9b;
+      --green: #2a6b5e;
+      --dark: #1e5247;
+      --rust: #c26743;
+      --gold: #d4a259;
+      --border: #e8e6e1;
+      --shadow: 0 12px 28px rgba(0,0,0,.06);
       --radius-lg: 28px;
-      --radius-md: 18px;
+      --radius-md: 16px;
       --radius-sm: 12px;
     }
 
     body {
-      font-family: system-ui, "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
-      color: var(--ink);
-      background: linear-gradient(180deg, #fcf7f0 0%, #f5ede2 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--text);
+      background: var(--bg);
       min-height: 100vh;
       line-height: 1.5;
     }
@@ -248,11 +272,10 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
       align-items: center;
       justify-content: space-between;
       padding: 0.8rem 1.2rem;
-      background: rgba(255, 250, 244, 0.92);
-      border: 1px solid rgba(255, 255, 255, 0.8);
-      border-radius: 60px;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 6px 18px rgba(31, 26, 23, 0.05);
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow);
       margin-bottom: 1.8rem;
     }
 
@@ -260,25 +283,26 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
       display: flex;
       align-items: center;
       gap: 10px;
+      text-decoration: none;
     }
 
     .logo-icon {
-      width: 42px;
-      height: 42px;
-      border-radius: 30px;
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, var(--forest), #2f7968);
+      background: linear-gradient(135deg, var(--green), #3a8a7a);
       color: white;
-      font-size: 1.4rem;
+      font-size: 1.2rem;
     }
 
     .logo-text {
-      font-weight: 800;
-      font-size: 1.6rem;
-      letter-spacing: -0.02em;
-      color: var(--forest);
+      font-weight: 700;
+      font-size: 1.45rem;
+      letter-spacing: -0.3px;
+      color: var(--green);
     }
 
     .breadcrumb {
@@ -288,7 +312,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
     }
 
     .breadcrumb a {
-      color: var(--forest);
+      color: var(--green);
       text-decoration: none;
       font-weight: 600;
     }
@@ -296,7 +320,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
     h1 {
       font-size: 2rem;
       margin-bottom: 1rem;
-      color: var(--ink);
+      color: var(--text);
     }
 
     .alert {
@@ -321,7 +345,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
     }
 
     .confirmation-box {
-      background: var(--paper);
+      background: var(--white);
       border-radius: var(--radius-lg);
       box-shadow: var(--shadow);
       padding: 2rem;
@@ -332,14 +356,14 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
 
     .confirmation-icon {
       font-size: 4rem;
-      color: var(--forest);
+      color: var(--green);
       margin-bottom: 1rem;
     }
 
     .order-number {
       font-size: 1.5rem;
       font-weight: 700;
-      color: var(--forest);
+      color: var(--green);
       margin: 1rem 0;
       font-family: monospace;
     }
@@ -358,7 +382,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
     }
 
     .cart-section, .summary-section {
-      background: var(--paper);
+      background: var(--white);
       border-radius: var(--radius-lg);
       padding: 1.5rem;
       box-shadow: var(--shadow);
@@ -368,7 +392,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
     h2 {
       font-size: 1.4rem;
       margin-bottom: 1.2rem;
-      color: var(--ink);
+      color: var(--text);
     }
 
     .cart-item {
@@ -376,7 +400,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
       justify-content: space-between;
       align-items: center;
       padding: 1rem;
-      border: 1px solid var(--line);
+      border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       margin-bottom: 0.8rem;
       gap: 1rem;
@@ -405,7 +429,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
     .item-quantity input {
       width: 50px;
       padding: 0.3rem;
-      border: 1px solid var(--line);
+      border: 1px solid var(--border);
       border-radius: 4px;
       text-align: center;
     }
@@ -431,7 +455,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
     }
 
     .btn-primary {
-      background: var(--forest);
+      background: var(--green);
       color: white;
     }
 
@@ -440,9 +464,9 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
     }
 
     .btn-secondary {
-      background: var(--paper);
-      color: var(--ink);
-      border: 1px solid var(--line);
+      background: var(--white);
+      color: var(--text);
+      border: 1px solid var(--border);
     }
 
     .btn-secondary:hover {
@@ -472,7 +496,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
     textarea, input[type="text"] {
       width: 100%;
       padding: 0.7rem;
-      border: 1px solid var(--line);
+      border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       font-family: inherit;
     }
@@ -482,7 +506,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
       justify-content: space-between;
       margin-bottom: 0.8rem;
       padding-bottom: 0.8rem;
-      border-bottom: 1px solid var(--line);
+      border-bottom: 1px solid var(--border);
     }
 
     .summary-total {
@@ -493,7 +517,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
       color: var(--rust);
       margin-top: 1rem;
       padding-top: 1rem;
-      border-top: 2px solid var(--line);
+      border-top: 2px solid var(--border);
     }
 
     .empty-cart {
@@ -539,7 +563,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
     <!-- Header -->
     <div class="top-bar">
       <div class="logo-area">
-        <div class="logo-icon">👔</div>
+        <div class="logo-icon"><i class="fas fa-vest"></i></div>
         <div class="logo-text">Pastimes</div>
       </div>
       <nav style="display: flex; gap: 0.5rem;">
@@ -575,15 +599,11 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
       <div class="alert alert-success">
         <i class="fas fa-info-circle"></i>
         <div>
-          Your order has been placed successfully. You will receive a confirmation email shortly.
+          Your order has been placed successfully. Visit <a href="my_orders.php" style="color:inherit;font-weight:700">My Orders</a> to track it.
         </div>
       </div>
 
-      <div class="session-id" style="margin-top: 1.5rem;">
-        Session ID: <strong><?php echo session_id(); ?></strong>
-      </div>
-
-      <div style="margin-top: 1.5rem; text-align: left; background: var(--sand); padding: 1rem; border-radius: var(--radius-sm);">
+      <div style="margin-top: 1.5rem; text-align: left; background: var(--bg); padding: 1rem; border-radius: var(--radius-sm);">
         <strong>Order Summary:</strong>
         <div style="margin-top: 0.8rem;">
           Total Amount: <strong style="color: var(--rust);">$<?php echo number_format($total_price, 2); ?></strong>
