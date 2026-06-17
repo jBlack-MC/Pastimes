@@ -3,7 +3,7 @@ session_start();
 error_reporting(E_ALL);
 ini_set("display_errors", 1);
 
-include("../config/DBConn.php");
+require_once __DIR__ . "/../config/DBConn.php";
 
 if (isset($_SESSION["user_id"])) {
     if (($_SESSION["role"] ?? "") === "admin") {
@@ -45,7 +45,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $message = "Account not verified";
                     $messageType = "error";
                 } else {
-                    $isValid = ($user["password"] === $password) || password_verify($password, $user["password"]);
+                    $isValid = password_verify($password, $user["password"]);
 
                     if ($isValid) {
                         $_SESSION["user_id"] = (int)$user["user_id"];
@@ -75,7 +75,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 mysqli_stmt_close($adminStmt);
 
                 if ($admin) {
-                    $isAdminValid = ($admin["password"] === $password) || password_verify($password, $admin["password"]);
+                    $isAdminValid = password_verify($password, $admin["password"]);
 
                     if ($isAdminValid) {
                         $_SESSION["user_id"] = (int)$admin["admin_id"];
@@ -100,7 +100,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
-  <title>Pastimes · Sign in</title>
+  <title>Pastimes ï¿½ Sign in</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
     * {

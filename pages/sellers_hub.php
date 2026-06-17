@@ -1,17 +1,205 @@
-<?php
+﻿<?php
+/**
+ * Seller Hub - Seller Dashboard
+ * 
+ * Allows sellers to:
+ * - Add new products
+ * - View their products
+ * - Edit products
+ * - Delete products
+ */
+
 session_start();
 
 if (!isset($_SESSION["user_id"])) {
-  header("Location: login.php");
-  exit;
+    header("Location: login.php");
+    exit;
 }
+
+require_once __DIR__ . "/../config/DBConn.php";
+
+$user_id = $_SESSION["user_id"];
+$name = $_SESSION["name"] ?? "User";
+$seller_id = null;
+$seller_status = null;
+$seller_brand = null;
+$error_message = "";
+$success_message = "";
+
+// Check if user is a seller
+$sellerStmt = mysqli_prepare($conn, 
+    "SELECT seller_id, approval_status, brand_name FROM tblseller WHERE user_id = ?"
+);
+
+if ($sellerStmt) {
+    mysqli_stmt_bind_param($sellerStmt, "i", $user_id);
+    mysqli_stmt_execute($sellerStmt);
+    $sellerResult = mysqli_stmt_get_result($sellerStmt);
+    $sellerRow = mysqli_fetch_assoc($sellerResult);
+    mysqli_stmt_close($sellerStmt);
+    
+    if ($sellerRow) {
+        $seller_id = $sellerRow["seller_id"];
+        $seller_status = $sellerRow["approval_status"];
+        $seller_brand = $sellerRow["brand_name"];
+    }
+}
+
+if (!$seller_id) {
+    header("Location: seller_register.php");
+    exit;
+}
+
+// Handle delete product
+if (isset($_GET["delete"]) && is_numeric($_GET["delete"])) {
+    $product_id = (int)$_GET["delete"];
+    
+    // Verify ownership
+    $checkStmt = mysqli_prepare($conn, 
+        "SELECT product_id FROM tblclothes WHERE product_id = ? AND seller_id = ?"
+    );
+    
+    if ($checkStmt) {
+        mysqli_stmt_bind_param($checkStmt, "ii", $product_id, $seller_id);
+        mysqli_stmt_execute($checkStmt);
+        $checkResult = mysqli_stmt_get_result($checkStmt);
+        
+        if (mysqli_num_rows($checkResult) > 0) {
+            // Delete the product
+            $deleteStmt = mysqli_prepare($conn, "DELETE FROM tblclothes WHERE product_id = ?");
+            if ($deleteStmt) {
+                mysqli_stmt_bind_param($deleteStmt, "i", $product_id);
+                if (mysqli_stmt_execute($deleteStmt)) {
+                    $success_message = "Product deleted successfully.";
+                } else {
+                    $error_message = "Error deleting product.";
+                }
+                mysqli_stmt_close($deleteStmt);
+            }
+        }
+        mysqli_stmt_close($checkStmt);
+    }
+}
+
+// Handle add/edit product
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["action"])) {
+    $action = $_POST["action"];
+    
+    if ($action === "add" || $action === "edit") {
+        $product_name = trim($_POST["product_name"] ?? "");
+        $brand = trim($_POST["brand"] ?? $seller_brand);
+        $description = trim($_POST["description"] ?? "");
+        $price = (float)($_POST["price"] ?? 0);
+        $stock = (int)($_POST["stock"] ?? 0);
+        
+        // Validation
+        if (empty($product_name)) {
+            $error_message = "Product name is required.";
+        } elseif ($price <= 0) {
+            $error_message = "Price must be greater than 0.";
+        } elseif ($stock < 0) {
+            $error_message = "Stock cannot be negative.";
+        } else if ($action === "add") {
+            $image = "placeholder-clothing.jpg";
+
+            // Add new product
+            $insertStmt = mysqli_prepare($conn,
+                "INSERT INTO tblclothes (user_id, seller_id, name, brand, description, price, stock, image, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())"
+            );
+            
+            if ($insertStmt) {
+                mysqli_stmt_bind_param($insertStmt, "iisssdis", $user_id, $seller_id, $product_name, $brand, $description, $price, $stock, $image);
+                
+                if (mysqli_stmt_execute($insertStmt)) {
+                    $success_message = "Product added successfully!";
+                } else {
+                    $error_message = "Error adding product: " . mysqli_error($conn);
+                }
+                mysqli_stmt_close($insertStmt);
+            }
+        } else if ($action === "edit") {
+            // Edit product
+            $product_id = (int)($_POST["product_id"] ?? 0);
+            
+            // Verify ownership
+            $checkStmt = mysqli_prepare($conn,
+                "SELECT product_id FROM tblclothes WHERE product_id = ? AND seller_id = ?"
+            );
+            
+            if ($checkStmt) {
+                mysqli_stmt_bind_param($checkStmt, "ii", $product_id, $seller_id);
+                mysqli_stmt_execute($checkStmt);
+                $checkResult = mysqli_stmt_get_result($checkStmt);
+                
+                if (mysqli_num_rows($checkResult) > 0) {
+                    $updateStmt = mysqli_prepare($conn,
+                        "UPDATE tblclothes SET name = ?, brand = ?, description = ?, price = ?, stock = ?
+                         WHERE product_id = ? AND seller_id = ?"
+                    );
+                    
+                    if ($updateStmt) {
+                        mysqli_stmt_bind_param($updateStmt, "sssdiii", $product_name, $brand, $description, $price, $stock, $product_id, $seller_id);
+                        
+                        if (mysqli_stmt_execute($updateStmt)) {
+                            $success_message = "Product updated successfully!";
+                        } else {
+                            $error_message = "Error updating product.";
+                        }
+                        mysqli_stmt_close($updateStmt);
+                    }
+                } else {
+                    $error_message = "Product not found or you don't have permission to edit it.";
+                }
+                mysqli_stmt_close($checkStmt);
+            }
+        }
+    }
+}
+
+// Fetch seller's products
+$products = [];
+if ($seller_id) {
+    $productsStmt = mysqli_prepare($conn,
+        "SELECT product_id, name, brand, description, price, stock, created_at
+         FROM tblclothes
+         WHERE seller_id = ?
+         ORDER BY created_at DESC"
+    );
+    
+    if ($productsStmt) {
+        mysqli_stmt_bind_param($productsStmt, "i", $seller_id);
+        mysqli_stmt_execute($productsStmt);
+        $productsResult = mysqli_stmt_get_result($productsStmt);
+        
+        while ($product = mysqli_fetch_assoc($productsResult)) {
+            $products[] = $product;
+        }
+        mysqli_stmt_close($productsStmt);
+    }
+}
+
+$edit_product = null;
+if (isset($_GET["edit"]) && is_numeric($_GET["edit"])) {
+    $product_id = (int)$_GET["edit"];
+    
+    // Find product
+    foreach ($products as $p) {
+        if ($p["product_id"] == $product_id) {
+            $edit_product = $p;
+            break;
+        }
+    }
+}
+
+mysqli_close($conn);
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
-  <title>Pastimes · Seller Dashboard</title>
+  <title>Pastimes Â· Seller Dashboard</title>
   <!-- Font Awesome 6 -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
@@ -122,6 +310,25 @@ if (!isset($_SESSION["user_id"])) {
       color: var(--text-secondary);
       cursor: pointer;
       transition: 0.2s;
+    }
+
+    .alert {
+      border-radius: var(--radius-sm);
+      padding: 0.85rem 1rem;
+      margin-bottom: 1rem;
+      font-size: 0.88rem;
+      border-left: 4px solid;
+      background: var(--white);
+    }
+
+    .alert-success {
+      color: #1b6f4e;
+      border-color: #1b6f4e;
+    }
+
+    .alert-error {
+      color: #9b3a25;
+      border-color: var(--rust);
     }
 
     /* stats cards */
@@ -335,6 +542,14 @@ if (!isset($_SESSION["user_id"])) {
     </div>
   </header>
 
+  <?php if ($error_message): ?>
+    <div class="alert alert-error"><?php echo htmlspecialchars($error_message); ?></div>
+  <?php endif; ?>
+
+  <?php if ($success_message): ?>
+    <div class="alert alert-success"><?php echo htmlspecialchars($success_message); ?></div>
+  <?php endif; ?>
+
   <!-- stats cards -->
   <div class="stats-grid">
     <div class="stat-card">
@@ -355,14 +570,14 @@ if (!isset($_SESSION["user_id"])) {
     <div class="stat-card">
       <div class="stat-title">Avg Rating</div>
       <div class="stat-value" id="avgRating">0.0</div>
-      <div class="stat-sub">⭐ from buyers</div>
+      <div class="stat-sub">â­ from buyers</div>
     </div>
   </div>
 
   <!-- tabs -->
   <div class="tabs">
-    <button class="tab-btn active" data-tab="products">📦 My Products</button>
-    <button class="tab-btn" data-tab="orders">📋 Sales & Orders</button>
+    <button class="tab-btn active" data-tab="products">ðŸ“¦ My Products</button>
+    <button class="tab-btn" data-tab="orders">ðŸ“‹ Sales & Orders</button>
   </div>
 
   <!-- products panel -->
@@ -393,54 +608,50 @@ if (!isset($_SESSION["user_id"])) {
 
   <!-- add/edit product modal -->
   <div id="productModal" class="modal">
-    <div class="modal-content">
+    <form id="productForm" method="POST" action="sellers_hub.php" class="modal-content">
       <h3 id="modalTitle">Add New Product</h3>
-      <input type="hidden" id="editProductId">
+      <input type="hidden" id="productAction" name="action" value="add">
+      <input type="hidden" id="editProductId" name="product_id">
       <label>Product Name</label>
-      <input type="text" id="productName" placeholder="e.g., Organic Cotton Tee">
-      <label>Category</label>
-      <select id="productCategory"><option>Men</option><option>Women</option><option>Accessories</option><option>Sustainable</option></select>
+      <input type="text" id="productName" name="product_name" placeholder="e.g., Organic Cotton Tee" required>
+      <label>Brand</label>
+      <input type="text" id="productBrand" name="brand" value="<?php echo htmlspecialchars($seller_brand ?? ""); ?>">
+      <label>Description</label>
+      <textarea id="productDescription" name="description" rows="4" placeholder="Describe the item, fabric, fit, and condition."></textarea>
       <label>Price ($)</label>
-      <input type="number" id="productPrice" step="0.01" placeholder="29.99">
+      <input type="number" id="productPrice" name="price" step="0.01" min="0.01" placeholder="29.99" required>
       <label>Stock</label>
-      <input type="number" id="productStock" value="10">
-      <label>Image Icon (Font Awesome class)</label>
-      <input type="text" id="productIcon" placeholder="fa-tshirt">
+      <input type="number" id="productStock" name="stock" min="0" value="10" required>
       <div class="modal-buttons">
-        <button class="btn-outline" id="closeModalBtn">Cancel</button>
-        <button class="btn-primary" id="saveProductBtn">Save Product</button>
+        <button type="button" class="btn-outline" id="closeModalBtn">Cancel</button>
+        <button type="submit" class="btn-primary" id="saveProductBtn">Save Product</button>
       </div>
-    </div>
+    </form>
   </div>
 </div>
 
 <script>
-  // ---------- DEMO DATA ----------
-  let sellerProducts = [
-    { id: 101, name: "Organic Cotton Tee", category: "Men", price: 24.90, stock: 12, icon: "fa-tshirt", sales: 8, status: "active" },
-    { id: 102, name: "Linen Blend Shirt", category: "Men", price: 49.50, stock: 5, icon: "fa-vest", sales: 3, status: "active" },
-    { id: 103, name: "Vintage Denim Jacket", category: "Women", price: 79.00, stock: 0, icon: "fa-user-tie", sales: 6, status: "out_of_stock" },
-    { id: 104, name: "Handwoven Wool Scarf", category: "Accessories", price: 34.99, stock: 8, icon: "fa-scarf", sales: 2, status: "active" }
-  ];
-
-  // sales orders (linked to products)
-  let salesOrders = [
-    { id: "ORD-001", productId: 101, productName: "Organic Cotton Tee", buyer: "alex@example.com", qty: 2, total: 49.80, date: "2025-04-10", status: "delivered" },
-    { id: "ORD-002", productId: 103, productName: "Vintage Denim Jacket", buyer: "jordan@example.com", qty: 1, total: 79.00, date: "2025-04-05", status: "delivered" },
-    { id: "ORD-003", productId: 101, productName: "Organic Cotton Tee", buyer: "sam@example.com", qty: 1, total: 24.90, date: "2025-04-12", status: "shipped" },
-    { id: "ORD-004", productId: 102, productName: "Linen Blend Shirt", buyer: "chris@example.com", qty: 1, total: 49.50, date: "2025-04-08", status: "delivered" },
-    { id: "ORD-005", productId: 104, productName: "Handwoven Wool Scarf", buyer: "taylor@example.com", qty: 1, total: 34.99, date: "2025-04-11", status: "processing" }
-  ];
-
-  let nextProductId = 105;
-  let nextOrderId = 6;
+  const sellerBrand = <?php echo json_encode($seller_brand ?? ""); ?>;
+  const sellerProducts = <?php echo json_encode(array_map(function ($product) {
+    return [
+      "id" => (int)$product["product_id"],
+      "name" => $product["name"] ?? "",
+      "brand" => $product["brand"] ?? "",
+      "description" => $product["description"] ?? "",
+      "price" => (float)$product["price"],
+      "stock" => (int)$product["stock"],
+      "icon" => "fa-tshirt",
+      "sales" => 0,
+    ];
+  }, $products), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
+  const salesOrders = [];
 
   // Helper: update dashboard stats
   function updateStats() {
     const totalProductsCount = sellerProducts.length;
     const totalRevenue = salesOrders.reduce((sum, order) => sum + order.total, 0);
     const orderCount = salesOrders.length;
-    const avgRating = 4.7; // demo static rating
+    const avgRating = 0;
 
     document.getElementById('totalProducts').innerText = totalProductsCount;
     document.getElementById('totalSales').innerText = `$${totalRevenue.toFixed(2)}`;
@@ -453,11 +664,17 @@ if (!isset($_SESSION["user_id"])) {
     const tbody = document.getElementById('productsTableBody');
     if (!tbody) return;
     tbody.innerHTML = '';
+
+    if (sellerProducts.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6">No products yet. Add your first listing.</td></tr>';
+      return;
+    }
+
     sellerProducts.forEach(product => {
       const row = tbody.insertRow();
       row.innerHTML = `
         <td><div class="product-img-small"><i class="fas ${product.icon}"></i></div></td>
-        <td><strong>${escapeHtml(product.name)}</strong><br><small>${product.category}</small></td>
+        <td><strong>${escapeHtml(product.name)}</strong><br><small>${escapeHtml(product.brand || sellerBrand)}</small></td>
         <td>$${product.price.toFixed(2)}</td>
         <td><span class="status-badge ${product.stock === 0 ? 'status-sold' : ''}">${product.stock > 0 ? 'In stock' : 'Out of stock'}</span></td>
         <td>${product.sales || 0}</td>
@@ -479,9 +696,7 @@ if (!isset($_SESSION["user_id"])) {
       icon.addEventListener('click', (e) => {
         const id = parseInt(icon.getAttribute('data-id'));
         if (confirm('Delete this product? It will also affect sales records.')) {
-          sellerProducts = sellerProducts.filter(p => p.id !== id);
-          renderProducts();
-          updateStats();
+          window.location.href = 'sellers_hub.php?delete=' + encodeURIComponent(id);
         }
       });
     });
@@ -509,59 +724,28 @@ if (!isset($_SESSION["user_id"])) {
     const product = sellerProducts.find(p => p.id === id);
     if (!product) return;
     document.getElementById('modalTitle').innerText = 'Edit Product';
+    document.getElementById('productAction').value = 'edit';
     document.getElementById('editProductId').value = product.id;
     document.getElementById('productName').value = product.name;
-    document.getElementById('productCategory').value = product.category;
+    document.getElementById('productBrand').value = product.brand || sellerBrand;
+    document.getElementById('productDescription').value = product.description || '';
     document.getElementById('productPrice').value = product.price;
     document.getElementById('productStock').value = product.stock;
-    document.getElementById('productIcon').value = product.icon;
     document.getElementById('productModal').style.display = 'flex';
-  }
-
-  function saveProductFromModal() {
-    const id = document.getElementById('editProductId').value;
-    const name = document.getElementById('productName').value.trim();
-    const category = document.getElementById('productCategory').value;
-    const price = parseFloat(document.getElementById('productPrice').value);
-    const stock = parseInt(document.getElementById('productStock').value);
-    const icon = document.getElementById('productIcon').value.trim() || 'fa-tshirt';
-
-    if (!name || isNaN(price) || price <= 0) {
-      alert('Please fill valid product name and price.');
-      return;
-    }
-
-    if (id) {
-      // edit existing
-      const index = sellerProducts.findIndex(p => p.id == id);
-      if (index !== -1) {
-        sellerProducts[index] = { ...sellerProducts[index], name, category, price, stock, icon };
-      }
-    } else {
-      // add new
-      const newProduct = {
-        id: nextProductId++,
-        name, category, price, stock, icon,
-        sales: 0,
-        status: 'active'
-      };
-      sellerProducts.push(newProduct);
-    }
-    renderProducts();
-    updateStats();
-    closeModal();
   }
 
   function closeModal() {
     document.getElementById('productModal').style.display = 'none';
+    document.getElementById('productAction').value = 'add';
     document.getElementById('editProductId').value = '';
     document.getElementById('productName').value = '';
+    document.getElementById('productBrand').value = sellerBrand;
+    document.getElementById('productDescription').value = '';
     document.getElementById('productPrice').value = '';
     document.getElementById('productStock').value = '10';
-    document.getElementById('productIcon').value = 'fa-tshirt';
   }
 
-  function escapeHtml(str) { return str.replace(/[&<>]/g, function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+  function escapeHtml(str) { return String(str || '').replace(/[&<>]/g, function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
 
   // tab switching
   const productsPanel = document.getElementById('productsPanel');
@@ -586,14 +770,15 @@ if (!isset($_SESSION["user_id"])) {
   // modal handlers
   document.getElementById('addProductBtn').addEventListener('click', () => {
     document.getElementById('modalTitle').innerText = 'Add New Product';
+    document.getElementById('productAction').value = 'add';
     document.getElementById('editProductId').value = '';
     document.getElementById('productName').value = '';
+    document.getElementById('productBrand').value = sellerBrand;
+    document.getElementById('productDescription').value = '';
     document.getElementById('productPrice').value = '';
     document.getElementById('productStock').value = '5';
-    document.getElementById('productIcon').value = 'fa-tshirt';
     document.getElementById('productModal').style.display = 'flex';
   });
-  document.getElementById('saveProductBtn').addEventListener('click', saveProductFromModal);
   document.getElementById('closeModalBtn').addEventListener('click', closeModal);
   window.addEventListener('click', (e) => { if (e.target === document.getElementById('productModal')) closeModal(); });
 

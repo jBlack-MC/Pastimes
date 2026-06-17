@@ -5,6 +5,23 @@ if (!isset($_SESSION["user_id"])) {
   header("Location: login.php");
   exit;
 }
+
+require_once __DIR__ . "/../config/DBConn.php";
+
+$user_id = (int)$_SESSION["user_id"];
+$cartCount = 0;
+$countStmt = mysqli_prepare($conn, "SELECT COALESCE(SUM(quantity), 0) AS cart_count FROM tblcart WHERE user_id = ?");
+
+if ($countStmt) {
+  mysqli_stmt_bind_param($countStmt, "i", $user_id);
+  mysqli_stmt_execute($countStmt);
+  $countResult = mysqli_stmt_get_result($countStmt);
+  $countRow = mysqli_fetch_assoc($countResult);
+  $cartCount = (int)($countRow["cart_count"] ?? 0);
+  mysqli_stmt_close($countStmt);
+}
+
+mysqli_close($conn);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -445,7 +462,7 @@ if (!isset($_SESSION["user_id"])) {
       <button class="nav-icon-btn" id="wishlistIconBtn"><i class="far fa-heart"></i></button>
       <div class="cart-badge" id="cartIconWrapper">
         <button class="nav-icon-btn" id="cartIconBtn"><i class="fas fa-shopping-bag"></i></button>
-        <span class="cart-count" id="cartCountBadge">0</span>
+        <span class="cart-count" id="cartCountBadge"><?php echo $cartCount; ?></span>
       </div>
       <button class="nav-icon-btn" id="accountBtn"><i class="far fa-user-circle"></i></button>
     </div>
@@ -586,6 +603,7 @@ if (!isset($_SESSION["user_id"])) {
     addBtn.addEventListener('click', () => {
       const finalSize = selectedSize;
       addItemToCart(product.id, product.name, product.price, currentQty, finalSize);
+      return;
       showToast(`🛒 Added ${currentQty} × ${product.name} (${finalSize}) to cart`);
     });
 
@@ -596,31 +614,36 @@ if (!isset($_SESSION["user_id"])) {
 
   // CART SYSTEM
   function addItemToCart(id, name, price, qty, size) {
-    const existingIndex = cartItems.findIndex(item => item.id === id && item.size === size);
-    if(existingIndex !== -1) {
-      cartItems[existingIndex].quantity += qty;
-    } else {
-      cartItems.push({ id, name, price, quantity: qty, size });
-    }
-    updateCartUI();
-  }
+    const body = new URLSearchParams();
+    body.append('product_id', id);
+    body.append('quantity', qty || 1);
 
-  function updateCartUI() {
-    const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-    const cartCountSpan = document.getElementById('cartCountBadge');
-    if(cartCountSpan) cartCountSpan.innerText = totalItems;
-    // store cart in localStorage for demo consistency
-    localStorage.setItem('pastimes_cart', JSON.stringify(cartItems));
+    fetch('cart_add.php', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: body.toString()
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (!data.success) {
+          throw new Error(data.message || 'Unable to add item to cart');
+        }
+
+        const cartCountSpan = document.getElementById('cartCountBadge');
+        if (cartCountSpan && typeof data.cart_count !== 'undefined') {
+          cartCountSpan.innerText = data.cart_count;
+        }
+
+        showToast(`Added ${qty || 1} x ${name} to cart`);
+      })
+      .catch(error => showToast(error.message || 'Unable to add item to cart'));
   }
 
   function loadCartFromStorage() {
-    const stored = localStorage.getItem('pastimes_cart');
-    if(stored) {
-      try {
-        cartItems = JSON.parse(stored);
-        updateCartUI();
-      } catch(e) {}
-    }
+    // Cart state is now stored in tblcart; keep this no-op for the existing page bootstrap.
   }
 
   function showToast(message) {

@@ -3,7 +3,7 @@ session_start();
 error_reporting(E_ALL);
 ini_set("display_errors", 1);
 
-include("../config/DBConn.php");
+require_once __DIR__ . "/../config/DBConn.php";
 
 if (isset($_SESSION["user_id"])) {
     if (($_SESSION["role"] ?? "") === "admin") {
@@ -68,7 +68,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             } else {
                 $fullName = trim($values["first_name"] . " " . $values["last_name"]);
                 $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-                $status = "active";
+                $status = "pending";
 
                 $insertStmt = mysqli_prepare(
                     $conn,

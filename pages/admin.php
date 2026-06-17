@@ -8,7 +8,7 @@ if (!isset($_SESSION["user_id"]) || (($_SESSION["role"] ?? "") !== "admin")) {
     exit;
 }
 
-include("../config/DBConn.php");
+require_once __DIR__ . "/../config/DBConn.php";
 
 $filter = $_GET["filter"] ?? "all";
 if (!in_array($filter, ["all", "pending", "active"], true)) {
@@ -38,7 +38,10 @@ $statsQuery = "
     FROM tblUser
 ";
 $statsResult = mysqli_query($conn, $statsQuery);
-$stats = mysqli_fetch_assoc($statsResult) ?: ["total" => 0, "active" => 0, "pending" => 0];
+$stats = ["total" => 0, "active" => 0, "pending" => 0];
+if ($statsResult) {
+    $stats = mysqli_fetch_assoc($statsResult) ?: $stats;
+}
 
 $whereClause = "";
 if ($filter === "pending") {
@@ -61,7 +64,7 @@ if ($userResult) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
-  <title>Pastimes · Admin</title>
+  <title>Pastimes Â· Admin</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }

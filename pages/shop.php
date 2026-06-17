@@ -14,7 +14,7 @@ $role = $_SESSION["role"] ?? "user";
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.5, user-scalable=yes">
-  <title>Pastimes � Marketplace</title>
+  <title>Pastimes � Marketplace</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -200,6 +200,57 @@ $role = $_SESSION["role"] ?? "user";
     .product-link:hover {
       background: var(--green-dark);
     }
+
+    .product-btn-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+
+    .btn-cart {
+      background: var(--rust);
+      color: white;
+      border: none;
+      border-radius: 30px;
+      padding: 8px 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      transition: 0.2s;
+    }
+
+    .btn-cart:hover {
+      background: #b35a36;
+      transform: translateY(-1px);
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: var(--green);
+      color: white;
+      padding: 0.8rem 1.2rem;
+      border-radius: 50px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      animation: slideIn 0.3s ease-out;
+      z-index: 999;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
   </style>
 </head>
 <body>
@@ -214,8 +265,7 @@ $role = $_SESSION["role"] ?? "user";
     </a>
     <nav class="nav">
       <a href="shop.php">Shop</a>
-      <a href="product.php?id=1">Products</a>
-      <a href="checkout.php">Cart</a>
+      <a href="checkout.php"><i class="fas fa-shopping-cart"></i> Cart</a>
       <a href="sellers_hub.php">Seller Hub</a>
       <?php if ($role === "admin"): ?>
         <a href="admin.php">Admin</a>
@@ -232,7 +282,12 @@ $role = $_SESSION["role"] ?? "user";
       <h3>Organic Cotton Tee</h3>
       <p>Soft, breathable, everyday wear.</p>
       <div class="price">$24.90</div>
-      <a class="product-link" href="product.php?id=1"><i class="fas fa-eye"></i> View product</a>
+      <div class="product-btn-group">
+        <a class="product-link" href="product.php?id=1"><i class="fas fa-eye"></i> View</a>
+        <button class="btn-cart" onclick="addToCart(1, 'Organic Cotton Tee')">
+          <i class="fas fa-shopping-bag"></i> Add
+        </button>
+      </div>
     </article>
 
     <article class="product-card">
@@ -240,7 +295,12 @@ $role = $_SESSION["role"] ?? "user";
       <h3>Linen Blend Shirt</h3>
       <p>Lightweight fit for warm weather.</p>
       <div class="price">$49.50</div>
-      <a class="product-link" href="product.php?id=2"><i class="fas fa-eye"></i> View product</a>
+      <div class="product-btn-group">
+        <a class="product-link" href="product.php?id=2"><i class="fas fa-eye"></i> View</a>
+        <button class="btn-cart" onclick="addToCart(2, 'Linen Blend Shirt')">
+          <i class="fas fa-shopping-bag"></i> Add
+        </button>
+      </div>
     </article>
 
     <article class="product-card">
@@ -248,7 +308,12 @@ $role = $_SESSION["role"] ?? "user";
       <h3>Vintage Denim Jacket</h3>
       <p>Classic style with durable finish.</p>
       <div class="price">$79.00</div>
-      <a class="product-link" href="product.php?id=3"><i class="fas fa-eye"></i> View product</a>
+      <div class="product-btn-group">
+        <a class="product-link" href="product.php?id=3"><i class="fas fa-eye"></i> View</a>
+        <button class="btn-cart" onclick="addToCart(3, 'Vintage Denim Jacket')">
+          <i class="fas fa-shopping-bag"></i> Add
+        </button>
+      </div>
     </article>
 
     <article class="product-card">
@@ -256,9 +321,72 @@ $role = $_SESSION["role"] ?? "user";
       <h3>Handwoven Scarf</h3>
       <p>Handmade weave with premium wool.</p>
       <div class="price">$34.99</div>
-      <a class="product-link" href="product.php?id=4"><i class="fas fa-eye"></i> View product</a>
+      <div class="product-btn-group">
+        <a class="product-link" href="product.php?id=4"><i class="fas fa-eye"></i> View</a>
+        <button class="btn-cart" onclick="addToCart(4, 'Handwoven Scarf')">
+          <i class="fas fa-shopping-bag"></i> Add
+        </button>
+      </div>
     </article>
   </section>
 </div>
+
+<script>
+  async function addToCart(productId, productName) {
+    try {
+      const response = await fetch('cart_add.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: 'product_id=' + productId
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        showToast('✓ ' + productName + ' added to cart');
+      } else {
+        showToast('✗ ' + (data.message || 'Error adding to cart'), 'error');
+      }
+    } catch (error) {
+      showToast('✗ Error adding to cart', 'error');
+      console.error(error);
+    }
+  }
+
+  function showToast(message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    
+    if (type === 'error') {
+      toast.style.background = 'var(--rust)';
+    }
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+      toast.style.animation = 'fadeOut 0.3s ease-out forwards';
+      setTimeout(() => toast.remove(), 300);
+    }, 2500);
+  }
+
+  // Add CSS animation
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes fadeOut {
+      from {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      to {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+    }
+  `;
+  document.head.appendChild(style);
+</script>
 </body>
 </html>
