@@ -1,6 +1,6 @@
 # Pastimes Threads — Clothing Marketplace
 
-**Pastimes Threads** is a PHP 8 / MySQL e-commerce web application built for the **WEDE6021 Part 2 POE** assessment.
+**Pastimes Threads** is a PHP 8 / MySQL e-commerce web application built for the **WEDE6021  POE** assessment.
 
 ---
 
