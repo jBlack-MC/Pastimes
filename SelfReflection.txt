@@ -460,6 +460,6 @@ clearly reflected in this self-reflection.
 
 ================================================================================
 MODULE: Web Development (Intermediate) — WEDE6021/w
-TOTAL MARKS: 100
+
 END OF SELF-REFLECTION
 ================================================================================
