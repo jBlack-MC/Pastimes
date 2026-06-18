@@ -1,0 +1,18 @@
+# Normalize line endings across platforms
+* text=auto
+
+# Explicit handling for common project file types
+*.php   text
+*.md    text
+*.sql   text
+*.txt   text
+*.css   text
+*.js    text
+*.html  text
+
+# Treat images and binaries as binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.pdf   binary
