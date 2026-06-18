@@ -38,6 +38,37 @@ if (!$seller_id) {
     exit;
 }
 
+/* ── UPDATE ORDER STATUS (seller: pending→shipped, shipped→delivered) ── */
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["seller_order_action"])) {
+    $upd_order_id = (int)($_POST["upd_order_id"] ?? 0);
+    $upd_status   = $_POST["upd_status"] ?? "";
+    if ($upd_order_id > 0 && in_array($upd_status, ["shipped", "delivered"], true)) {
+        /* Confirm this seller has products in the order */
+        $owns = mysqli_prepare($conn,
+            "SELECT 1 FROM tblorderline ol
+             JOIN tblclothes c ON ol.product_id = c.product_id
+             WHERE ol.order_id = ? AND c.seller_id = ? LIMIT 1"
+        );
+        if ($owns) {
+            mysqli_stmt_bind_param($owns, "ii", $upd_order_id, $seller_id);
+            mysqli_stmt_execute($owns);
+            if (mysqli_num_rows(mysqli_stmt_get_result($owns)) > 0) {
+                $updO = mysqli_prepare($conn,
+                    "UPDATE tblorder SET status = ? WHERE order_id = ? AND status != 'cancelled'"
+                );
+                if ($updO) {
+                    mysqli_stmt_bind_param($updO, "si", $upd_status, $upd_order_id);
+                    mysqli_stmt_execute($updO);
+                    mysqli_stmt_close($updO);
+                    $success_message = "Order #" . str_pad($upd_order_id, 8, "0", STR_PAD_LEFT)
+                                     . " marked as " . ucfirst($upd_status) . ".";
+                }
+            }
+            mysqli_stmt_close($owns);
+        }
+    }
+}
+
 /* ── DELETE product ── */
 if (isset($_GET["delete"]) && is_numeric($_GET["delete"])) {
     $del_id = (int)$_GET["delete"];
@@ -91,9 +122,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["action"])) {
             $allowed = ["jpg", "jpeg", "png", "gif", "webp"];
             if (in_array($ext, $allowed, true)) {
                 /* Verify real file content, not just the filename extension */
-                $finfo        = finfo_open(FILEINFO_MIME_TYPE);
-                $mimeType     = finfo_file($finfo, $_FILES["product_image"]["tmp_name"]);
-                finfo_close($finfo);
+                $finfo    = new finfo(FILEINFO_MIME_TYPE);
+                $mimeType = $finfo->file($_FILES["product_image"]["tmp_name"]);
                 $allowedMimes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
                 if (!in_array($mimeType, $allowedMimes, true)) {
                     $error_message = "Invalid image file. Please upload a real JPG, PNG, GIF, or WEBP.";
@@ -240,6 +270,24 @@ if ($soStmt) {
     mysqli_stmt_close($soStmt);
 }
 
+/* Fetch per-seller line items for each of those orders */
+$sellerOrderLines = [];
+if ($sellerOrders) {
+    $oids  = implode(",", array_map(fn($o) => (int)$o["order_id"], $sellerOrders));
+    $slRes = mysqli_query($conn,
+        "SELECT ol.order_id, c.name AS product_name, ol.quantity, ol.unit_price
+         FROM tblorderline ol
+         JOIN tblclothes c ON ol.product_id = c.product_id
+         WHERE ol.order_id IN ({$oids}) AND c.seller_id = {$seller_id}
+         ORDER BY ol.orderline_id ASC"
+    );
+    if ($slRes) {
+        while ($row = mysqli_fetch_assoc($slRes)) {
+            $sellerOrderLines[$row["order_id"]][] = $row;
+        }
+    }
+}
+
 mysqli_close($conn);
 ?>
 <!DOCTYPE html>
@@ -297,6 +345,7 @@ mysqli_close($conn);
     .prod-thumb img{width:48px;height:48px;border-radius:var(--sm-r);object-fit:cover}
     .sbadge{display:inline-block;padding:3px 10px;border-radius:30px;font-size:.7rem;font-weight:600;background:#e8f5f2;color:var(--green)}
     .sbadge.out{background:#fef2e8;color:var(--rust)}
+    .sbadge.sbadge-ship{background:#e8f0fb;color:#2a52a4}
     .act i{margin:0 4px;cursor:pointer;color:var(--muted);transition:.2s}
     .act i:hover{color:var(--rust)}
     /* modal */
@@ -419,22 +468,64 @@ mysqli_close($conn);
         <tr>
           <th>Order #</th>
           <th>Date</th>
-          <th>Items</th>
+          <th>Your Items</th>
           <th>Revenue</th>
           <th>Status</th>
+          <th>Action</th>
         </tr>
       </thead>
       <tbody>
-        <?php foreach ($sellerOrders as $so): ?>
+        <?php foreach ($sellerOrders as $so):
+          $oLines     = $sellerOrderLines[$so["order_id"]] ?? [];
+          $canShip    = $so["status"] === "pending";
+          $canDeliver = $so["status"] === "shipped";
+          $isFinal    = in_array($so["status"], ["delivered", "cancelled"], true);
+          $badgeCls   = match($so["status"]) {
+            "delivered" => "",
+            "shipped"   => "sbadge-ship",
+            default     => "out",
+          };
+        ?>
         <tr>
           <td><strong>ORD-<?php echo str_pad((int)$so["order_id"], 8, "0", STR_PAD_LEFT); ?></strong></td>
-          <td><?php echo date("d M Y", strtotime($so["order_date"])); ?></td>
-          <td><?php echo (int)$so["total_items"]; ?></td>
-          <td style="color:var(--rust);font-weight:700">$<?php echo number_format((float)$so["order_revenue"], 2); ?></td>
+          <td style="white-space:nowrap"><?php echo date("d M Y", strtotime($so["order_date"])); ?></td>
+          <td style="min-width:160px">
+            <?php foreach ($oLines as $ol): ?>
+              <div style="font-size:.8rem;margin-bottom:2px">
+                <?php echo htmlspecialchars($ol["product_name"]); ?>
+                <span style="color:var(--muted)">×<?php echo (int)$ol["quantity"]; ?></span>
+              </div>
+            <?php endforeach; ?>
+            <?php if (!$oLines): ?><span style="color:var(--muted)">—</span><?php endif; ?>
+          </td>
+          <td style="color:var(--rust);font-weight:700;white-space:nowrap">
+            $<?php echo number_format((float)$so["order_revenue"], 2); ?>
+          </td>
           <td>
-            <span class="sbadge <?php echo $so["status"] === "delivered" ? "" : "out"; ?>">
+            <span class="sbadge <?php echo $badgeCls; ?>">
               <?php echo ucfirst(htmlspecialchars($so["status"])); ?>
             </span>
+          </td>
+          <td>
+            <?php if (!$isFinal): ?>
+            <form method="POST" style="display:inline">
+              <input type="hidden" name="seller_order_action" value="1">
+              <input type="hidden" name="upd_order_id" value="<?php echo (int)$so["order_id"]; ?>">
+              <?php if ($canShip): ?>
+              <button type="submit" name="upd_status" value="shipped"
+                      class="btn btn-primary" style="font-size:.75rem;padding:5px 12px">
+                <i class="fas fa-truck"></i> Mark Shipped
+              </button>
+              <?php elseif ($canDeliver): ?>
+              <button type="submit" name="upd_status" value="delivered"
+                      class="btn btn-primary" style="font-size:.75rem;padding:5px 12px">
+                <i class="fas fa-check-circle"></i> Mark Delivered
+              </button>
+              <?php endif; ?>
+            </form>
+            <?php else: ?>
+              <span style="color:var(--muted);font-size:.8rem">—</span>
+            <?php endif; ?>
           </td>
         </tr>
         <?php endforeach; ?>

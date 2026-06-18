@@ -62,16 +62,42 @@
 
 ## Test Accounts
 
-| Role | Username | Password | Notes |
-| --- | --- | --- | --- |
-| Customer | john123 | 123456 | Active |
-| Customer | jane123 | 123456 | Active |
-| Customer | mike123 | 123456 | Active |
-| Customer | sara123 | 123456 | Active |
-| Customer | thabo123 | 123456 | Active |
-| Admin | admin123 | admin123 | Full admin access |
+### Administrator
 
-> New registrations require **admin approval** before login is permitted.
+| Name | Username | Password | Access |
+| --- | --- | --- | --- |
+| Thabo Nkosi | thabo_admin | admin123 | Full admin panel — cannot shop |
+
+The admin manages the entire platform: approves new registrations, activates
+seller accounts, edits and removes products, monitors all orders, and responds
+to customer support tickets and messages.
+
+### Sellers (approved — products visible in shop)
+
+| Name | Username | Password | Brand / Specialty |
+| --- | --- | --- | --- |
+| Amahle Dube | amahle_threads | amahle123 | Vintage streetwear and denim |
+| Sipho Cele | sipho_style | sipho123 | Smart-casual and formal wear |
+| Priya Naidoo | priya_boutique | priya123 | Handcrafted accessories and knitwear |
+
+Sellers register through the Seller Hub, wait for admin approval, then list
+their own products. Products from unapproved sellers do not appear in the shop.
+
+### Customers (buyers)
+
+| Name | Username | Password | Notes |
+| --- | --- | --- | --- |
+| John Mokoena | john123 | 123456 | Active — has existing orders |
+| Jane Botha | jane123 | 123456 | Active |
+| Mike Peters | mike123 | 123456 | Active |
+| Sara Nxumalo | sara123 | 123456 | Active |
+| Lebo Khumalo | lebo123 | 123456 | Active |
+| Zanele Moyo | zanele123 | 123456 | Active |
+| Unathi Buyer | unathi_buys | unathi123 | Active — used for POE demonstration |
+
+> New registrations start as **pending** and cannot log in until an admin
+> approves the account. This mirrors a real marketplace where the platform
+> owner verifies new members before granting access.
 
 ---
 

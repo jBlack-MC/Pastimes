@@ -53,6 +53,16 @@ if ($orders) {
 
 $grandTotal = array_sum(array_column($orders, "total_price"));
 
+$flashMsg  = "";
+$flashType = "";
+if (isset($_GET["msg"]) && $_GET["msg"] === "cancelled") {
+    $flashMsg  = "Order cancelled. Items have been restocked.";
+    $flashType = "ok";
+} elseif (isset($_GET["err"]) && $_GET["err"] === "cannot_cancel") {
+    $flashMsg  = "This order cannot be cancelled (it may have already shipped).";
+    $flashType = "err";
+}
+
 mysqli_close($conn);
 
 /* Status display helpers */
@@ -135,6 +145,12 @@ $statusMeta = [
     .addr{color:var(--muted);display:flex;align-items:center;gap:5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .btn-report{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:30px;font-size:.78rem;font-weight:600;border:1px solid #f0d3bf;background:#fff2e7;color:#a4532f;text-decoration:none;transition:.2s;flex-shrink:0}
     .btn-report:hover{background:#fde8d0;border-color:#e0b090}
+    .btn-cancel{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:30px;font-size:.78rem;font-weight:600;border:1px solid #f5b7b7;background:#fdecea;color:#9b2a2a;cursor:pointer;transition:.2s;font-family:inherit;flex-shrink:0}
+    .btn-cancel:hover{background:#f9d0d0}
+    .footer-actions{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;flex-shrink:0}
+    .flash-bar{border-radius:var(--md-r);padding:.8rem 1.1rem;margin-bottom:1rem;font-size:.85rem;border-left:4px solid;display:flex;align-items:center;gap:.5rem}
+    .flash-ok{background:#e8f7ef;color:#1b6f4e;border-color:#1b6f4e}
+    .flash-err{background:#fdecea;color:#9b2a2a;border-color:#9b2a2a}
     /* status tracker */
     .tracker{display:flex;align-items:center;padding:.8rem 1.2rem;gap:0;border-bottom:1px solid var(--border);background:#f9f8f5}
     .tracker-step{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;font-size:.7rem;color:var(--muted);text-align:center}
@@ -173,6 +189,13 @@ $statusMeta = [
       <a class="secondary" href="logout.php">Logout</a>
     </nav>
   </header>
+
+  <?php if ($flashMsg): ?>
+    <div class="flash-bar flash-<?php echo $flashType; ?>">
+      <i class="fas <?php echo $flashType === 'ok' ? 'fa-check-circle' : 'fa-exclamation-circle'; ?>"></i>
+      <?php echo htmlspecialchars($flashMsg); ?>
+    </div>
+  <?php endif; ?>
 
   <div class="page-header">
     <h1><i class="fas fa-receipt" style="color:var(--green)"></i> My Orders
@@ -288,15 +311,26 @@ $statusMeta = [
         <?php endif; ?>
       </div>
 
-      <!-- Order footer: address + report button -->
+      <!-- Order footer: address + actions -->
       <div class="order-footer">
         <span class="addr">
           <i class="fas fa-map-marker-alt"></i>
           <?php echo htmlspecialchars(substr($o["delivery_address"] ?? "No address", 0, 60)); ?>
         </span>
-        <a href="report.php?order_id=<?php echo (int)$o['order_id']; ?>" class="btn-report">
-          <i class="fas fa-flag"></i> Report Issue
-        </a>
+        <div class="footer-actions">
+          <a href="report.php?order_id=<?php echo (int)$o['order_id']; ?>" class="btn-report">
+            <i class="fas fa-flag"></i> Report Issue
+          </a>
+          <?php if ($status === "pending"): ?>
+          <form method="POST" action="cancel_order.php"
+                onsubmit="return confirm('Cancel this order? Stock will be restored.')">
+            <input type="hidden" name="order_id" value="<?php echo (int)$o['order_id']; ?>">
+            <button type="submit" class="btn-cancel">
+              <i class="fas fa-times-circle"></i> Cancel Order
+            </button>
+          </form>
+          <?php endif; ?>
+        </div>
       </div>
     </div>
 
