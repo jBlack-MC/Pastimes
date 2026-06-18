@@ -9,6 +9,7 @@
 **Type of eShop:** A second-hand and artisan clothing marketplace where buyers can browse and purchase garments, and sellers can list their own items for sale.
 
 **Goals:**
+
 - Provide a platform for discovering slow-fashion, pre-loved, and handcrafted clothing.
 - Enable sellers to list and manage their own garments with photos and descriptions.
 - Give buyers a smooth shopping-cart and checkout experience with order history.
@@ -19,7 +20,7 @@
 ## Tech Stack
 
 | Layer | Technology |
-|---|---|
+| --- | --- |
 | Back-end | PHP 8.2 (procedural) |
 | Database | MySQL / MariaDB 10.4 |
 | Front-end | HTML5, CSS3, vanilla JavaScript |
@@ -31,25 +32,29 @@
 ## Setup Instructions
 
 ### Requirements
+
 - XAMPP (Apache + PHP 8+ + MySQL)
 - A modern web browser
 
 ### Steps
 
 1. Copy the project folder into your web root:
-   ```
+
+   ```batch
    C:\xampp\htdocs\Pastimes\
    ```
 
 2. Open **phpMyAdmin**, create a database named `clothingstore`, then import `clothingstore.sql` (project root) to create all tables and seed sample data.
 
 3. Confirm connection settings in `config/DBConn.php`:
-   ```
+
+   ```text
    host: 127.0.0.1 | db: clothingstore | user: root | pass: (blank)
    ```
 
 4. Start Apache and MySQL in the XAMPP Control Panel, then open:
-   ```
+
+   ```text
    http://localhost/Pastimes/
    ```
 
@@ -58,7 +63,7 @@
 ## Test Accounts
 
 | Role | Username | Password | Notes |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | Customer | john123 | 123456 | Active |
 | Customer | jane123 | 123456 | Active |
 | Customer | mike123 | 123456 | Active |
@@ -72,7 +77,7 @@
 
 ## Application Structure
 
-```
+```text
 Pastimes/
 ├── index.php                   # Startup / landing page
 ├── clothingstore.sql           # Database schema + seed data
@@ -104,12 +109,10 @@ Pastimes/
 
 ---
 
-## Key Features
-
 ### Shopping Cart Functions
 
 | Function | File | Behaviour |
-|---|---|---|
+| --- | --- | --- |
 | **Login** | `login.php` | Authenticates user; blocks `pending` accounts |
 | **ProcessInput** | `login.php`, `register.php` | Validates and sanitises all form fields |
 | **AddItem** | `cart_add.php` | AJAX; ON DUPLICATE KEY UPDATE increases qty |
@@ -122,6 +125,7 @@ Cart is persisted in `tblcart` (database), so items survive page navigation and 
 ### Checkout & Order Confirmation
 
 After a successful order the confirmation page displays:
+
 - **Order Number** — formatted as `ORD-00000001`
 - **Session ID** — the PHP `session_id()` for reference
 - Links to **My Orders** and **Return to Login**
@@ -147,7 +151,7 @@ After a successful order the confirmation page displays:
 ## Database Tables
 
 | Table | Purpose |
-|---|---|
+| --- | --- |
 | `tbluser` | Registered customers (`status`: pending / active, `role`: user / admin) |
 | `tbladmin` | Admin credentials (separate from tbluser) |
 | `tblclothes` | Product catalogue (name, price, stock, image, seller) |
@@ -172,7 +176,7 @@ After a successful order the confirmation page displays:
 ## Contributors
 
 | Name | Student Number |
-|---|---|
+| --- | --- |
 | Clarity Masuku | 10438928 |
 | Sibusiso Mabena | ST10462532 |
 | Unathi Mgandela | ST10447100 |
