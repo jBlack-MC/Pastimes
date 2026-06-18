@@ -19,7 +19,11 @@
 
 ## Demo
 
-[▶️ Watch Demo](./preview.mp4)
+![Demo](./preview.gif)
+
+## Full Walkthrough
+
+[▶️ Watch Video](https://youtu.be/kap92cGKQzQ)
 
 ## Tech Stack
 
@@ -74,7 +78,8 @@
 
 | Name | Username | Password | Access |
 | --- | --- | --- | --- |
-| Thabo Nkosi | `thabo_admin` | `admin123` | Full admin panel — cannot shop |
+| Thabo Nkosi | `thabo_admin` | `admin123` |— cannot shop |
+| admin123 | `admin123` | `admin123` | Full admin panel — cannot shop |
 
 The admin manages the entire platform: activates seller accounts, edits and removes products, monitors all orders, and responds to customer and seller messages.
 
