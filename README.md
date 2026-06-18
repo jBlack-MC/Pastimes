@@ -177,7 +177,7 @@ After a successful order the confirmation page displays:
 
 | Name | Student Number |
 | --- | --- |
-| Clarity Masuku | 10438928 |
+| Clarity Masuku | ST10438928 |
 | Sibusiso Mabena | ST10462532 |
 | Unathi Mgandela | ST10447100 |
 
