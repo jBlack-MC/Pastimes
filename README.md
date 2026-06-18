@@ -23,7 +23,7 @@
 
 ## Full Walkthrough
 
-[▶️ Watch Video](https://youtu.be/SFYRQCg3bsc)
+[▶️ Watch Video](https://youtu.be/kap92cGKQzQ)
 
 ## Tech Stack
 
