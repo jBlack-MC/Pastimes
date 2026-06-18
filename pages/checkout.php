@@ -1,36 +1,53 @@
 <?php
+/* checkout.php – Shopping cart review page.
+   Displays all items the logged-in user has added to their cart,
+   shows a running total, and lets the user proceed to payment. */
 session_start();
 
+/* Only logged-in customers may view the cart; redirect guests to login */
 if (!isset($_SESSION["user_id"])) {
   header("Location: login.php");
   exit;
 }
 
+/* Include database connection – $conn is made available by DBConn.php */
 require_once __DIR__ . "/../config/DBConn.php";
 
-$user_id = $_SESSION["user_id"];
+/* Cast user_id to int to ensure safe use in prepared statement */
+$user_id = (int)$_SESSION["user_id"];
 
-// Get cart items
-$cartStmt = mysqli_prepare($conn, 
-  "SELECT MIN(c.cart_id) AS cart_id, c.product_id, SUM(c.quantity) AS quantity, p.name, p.price, p.stock 
-   FROM tblcart c 
-   JOIN tblclothes p ON c.product_id = p.product_id 
-   WHERE c.user_id = ? 
-   GROUP BY c.product_id, p.name, p.price, p.stock
-   ORDER BY cart_id DESC"
+/* Fetch all cart rows for this user, joined with product details.
+   GROUP BY product_id collapses duplicate rows (e.g. added twice)
+   so each product appears only once with a summed quantity. */
+$cartStmt = mysqli_prepare($conn,
+  "SELECT MIN(c.cart_id) AS cart_id,
+          c.product_id,
+          SUM(c.quantity) AS quantity,
+          p.name,
+          p.price,
+          p.stock
+   FROM   tblcart c
+   JOIN   tblclothes p ON c.product_id = p.product_id
+   WHERE  c.user_id = ?
+   GROUP  BY c.product_id, p.name, p.price, p.stock
+   ORDER  BY cart_id DESC"
 );
 
+/* $cartItems holds one associative array per product line.
+   $cartTotal accumulates the running subtotal (quantity × unit price). */
 $cartItems = [];
-$cartTotal = 0;
+$cartTotal  = 0;
 
 if ($cartStmt) {
+  /* Bind the user_id parameter – "i" = integer type */
   mysqli_stmt_bind_param($cartStmt, "i", $user_id);
   mysqli_stmt_execute($cartStmt);
   $result = mysqli_stmt_get_result($cartStmt);
-  
+
+  /* Build the cart array and calculate the running total in one pass */
   while ($item = mysqli_fetch_assoc($result)) {
     $cartItems[] = $item;
-    $cartTotal += ($item["quantity"] * $item["price"]);
+    $cartTotal  += (float)$item["quantity"] * (float)$item["price"];
   }
   mysqli_stmt_close($cartStmt);
 }

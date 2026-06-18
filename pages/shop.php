@@ -1,41 +1,52 @@
 <?php
-/* Shop – product listing loaded from the database (Phase 12) */
+/* shop.php – Main product listing / marketplace page.
+   Loads all in-stock items from tblclothes and renders a product grid.
+   Each card has an Add to Cart button that calls cart_add.php via AJAX. */
 session_start();
 
+/* Unauthenticated visitors cannot browse the shop; send them to login */
 if (!isset($_SESSION["user_id"])) {
     header("Location: login.php");
     exit;
 }
 
+/* Include database connection – provides $conn (MySQLi object) */
 require_once __DIR__ . "/../config/DBConn.php";
 
-$name = $_SESSION["name"] ?? "User";
-$role = $_SESSION["role"] ?? "user";
-$user_id = (int)$_SESSION["user_id"];
+/* Read session variables set at login time */
+$name    = $_SESSION["name"] ?? "User";   // display name shown in welcome bar
+$role    = $_SESSION["role"] ?? "user";   // "user" or "admin"
+$user_id = (int)$_SESSION["user_id"];     // cast to int for prepared statements
 
-/* Fetch all in-stock products from the catalogue */
+/* Fetch every product that still has stock (stock > 0).
+   Ordered newest-first so fresh listings appear at the top. */
 $products = [];
-$result = mysqli_query($conn,
+$result   = mysqli_query($conn,
     "SELECT product_id, name, description, price, stock, image
-     FROM tblclothes
-     WHERE stock > 0
-     ORDER BY created_at DESC"
+     FROM   tblclothes
+     WHERE  stock > 0
+     ORDER  BY created_at DESC"
 );
 if ($result) {
+    /* Build a plain PHP array of associative rows for use in the HTML loop */
     while ($row = mysqli_fetch_assoc($result)) $products[] = $row;
 }
 
-/* Cart item count for the badge in navigation */
+/* Get the total quantity in this user's cart so the nav badge stays accurate.
+   COALESCE returns 0 when the cart is empty (SUM of NULL). */
 $cartCount = 0;
-$cStmt = mysqli_prepare($conn, "SELECT COALESCE(SUM(quantity),0) AS n FROM tblcart WHERE user_id=?");
+$cStmt     = mysqli_prepare($conn,
+    "SELECT COALESCE(SUM(quantity), 0) AS n FROM tblcart WHERE user_id = ?"
+);
 if ($cStmt) {
-    mysqli_stmt_bind_param($cStmt, "i", $user_id);
+    mysqli_stmt_bind_param($cStmt, "i", $user_id); // "i" = integer
     mysqli_stmt_execute($cStmt);
-    $cRow = mysqli_fetch_assoc(mysqli_stmt_get_result($cStmt));
+    $cRow      = mysqli_fetch_assoc(mysqli_stmt_get_result($cStmt));
     $cartCount = (int)($cRow["n"] ?? 0);
     mysqli_stmt_close($cStmt);
 }
 
+/* Close the database connection before rendering HTML */
 mysqli_close($conn);
 ?>
 <!DOCTYPE html>
