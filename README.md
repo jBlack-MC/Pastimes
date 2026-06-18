@@ -19,7 +19,7 @@
 
 ## Demo
 
-![Demo](./preview.gif)
+![Pastimes Demo](./preview.gif)
 
 ## Full Walkthrough
 
