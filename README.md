@@ -67,7 +67,7 @@
 | Name | Username | Password | Access |
 | --- | --- | --- | --- |
 | Thabo Nkosi | thabo_admin | admin123 | Full admin panel — cannot shop |
-
+| admin123 | admin123 | admin123 | Full admin panel — cannot shop |
 The admin manages the entire platform: approves new registrations, activates
 seller accounts, edits and removes products, monitors all orders, and responds
 to customer support tickets and messages.
