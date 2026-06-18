@@ -21,8 +21,8 @@ $error_message = "";
 $success_message = "";
 
 // Check if user is already a seller
-$checkStmt = mysqli_prepare($conn, 
-    "SELECT seller_id, approval_status FROM tblseller WHERE user_id = ?"
+$checkStmt = mysqli_prepare($conn,
+    "SELECT seller_id, approval_status, brand_name, created_date FROM tblseller WHERE user_id = ?"
 );
 
 if ($checkStmt) {
@@ -36,9 +36,9 @@ if ($checkStmt) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    // Check if already a seller
-    if ($existingSeller) {
-        $error_message = "You are already registered as a seller. Status: " . ucfirst($existingSeller["approval_status"]);
+    // Block resubmission for pending or approved sellers; allow rejected to re-apply
+    if ($existingSeller && in_array($existingSeller["approval_status"], ["pending", "approved"])) {
+        $error_message = "You already have an active application. Status: " . ucfirst($existingSeller["approval_status"]);
     } else {
         $brand_name = trim($_POST["brand_name"] ?? "");
         $description = trim($_POST["description"] ?? "");
@@ -58,29 +58,41 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         } elseif (!preg_match("/^[0-9\s\-\+\(\)]{10,}$/", $phone)) {
             $error_message = "Phone number must be valid (at least 10 digits).";
         } else {
-            // Insert into tblseller
-            $insertStmt = mysqli_prepare($conn,
-                "INSERT INTO tblseller (user_id, brand_name, description, phone, approval_status, created_date) 
-                 VALUES (?, ?, ?, ?, 'pending', NOW())"
-            );
-            
-            if (!$insertStmt) {
-                $error_message = "Database error: " . mysqli_error($conn);
-            } else {
-                mysqli_stmt_bind_param($insertStmt, "isss", $user_id, $brand_name, $description, $phone);
-                
-                if (mysqli_stmt_execute($insertStmt)) {
-                    $success_message = "Seller registration submitted! You'll be able to add products once approved by an admin.";
-                    $_SESSION["is_seller"] = true;
-                    $_SESSION["seller_status"] = "pending";
-                    
-                    // Optionally redirect after 3 seconds
-                    echo "<script>setTimeout(() => { window.location.href = 'sellers_hub.php'; }, 3000);</script>";
-                } else {
-                    $error_message = "Error registering as seller: " . mysqli_error($conn);
+            // Rejected sellers update their record; first-time applicants insert
+            if ($existingSeller && $existingSeller["approval_status"] === "rejected") {
+                $stmt = mysqli_prepare($conn,
+                    "UPDATE tblseller SET brand_name=?, description=?, phone=?, approval_status='pending', created_date=NOW()
+                     WHERE user_id=?"
+                );
+                if ($stmt) {
+                    mysqli_stmt_bind_param($stmt, "sssi", $brand_name, $description, $phone, $user_id);
+                    $ok = mysqli_stmt_execute($stmt);
+                    mysqli_stmt_close($stmt);
+                    if ($ok) {
+                        $existingSeller["approval_status"] = "pending";
+                        $existingSeller["brand_name"]      = $brand_name;
+                    } else {
+                        $error_message = "Error submitting application: " . mysqli_error($conn);
+                    }
                 }
-                
-                mysqli_stmt_close($insertStmt);
+            } else {
+                $stmt = mysqli_prepare($conn,
+                    "INSERT INTO tblseller (user_id, brand_name, description, phone, approval_status, created_date)
+                     VALUES (?, ?, ?, ?, 'pending', NOW())"
+                );
+                if (!$stmt) {
+                    $error_message = "Database error: " . mysqli_error($conn);
+                } else {
+                    mysqli_stmt_bind_param($stmt, "isss", $user_id, $brand_name, $description, $phone);
+                    if (mysqli_stmt_execute($stmt)) {
+                        // Re-read $existingSeller so the status page renders immediately
+                        $existingSeller = ["approval_status" => "pending", "brand_name" => $brand_name,
+                                          "created_date" => date("Y-m-d H:i:s")];
+                    } else {
+                        $error_message = "Error submitting application: " . mysqli_error($conn);
+                    }
+                    mysqli_stmt_close($stmt);
+                }
             }
         }
     }
@@ -375,27 +387,78 @@ mysqli_close($conn);
 
         <!-- Main Card -->
         <div class="card">
-            <?php if ($existingSeller): ?>
-                <!-- Already a seller -->
+            <?php if ($existingSeller && $existingSeller["approval_status"] === "pending"): ?>
+                <!-- Application under review -->
                 <div class="already-seller">
-                    <div class="icon"><i class="fas fa-store"></i></div>
-                    <h2>You're Already a Seller!</h2>
-                    <p>Status: <strong><?php echo ucfirst($existingSeller["approval_status"]); ?></strong></p>
-                    <?php if ($existingSeller["approval_status"] === "pending"): ?>
-                    <p>Your seller account is pending admin approval. Once approved, you can start adding products.</p>
-                    <?php elseif ($existingSeller["approval_status"] === "approved"): ?>
-                    <p>Your seller account is active! You can now add and manage your products.</p>
-                    <?php endif; ?>
-                    <div class="form-actions">
-                        <a href="sellers_hub.php" class="btn btn-primary">
-                            <i class="fas fa-th-large"></i> Go to Seller Hub
-                        </a>
+                    <div class="icon" style="color:var(--gold)"><i class="fas fa-hourglass-half"></i></div>
+                    <h2>Application Under Review</h2>
+                    <p>We've received your application for <strong><?php echo htmlspecialchars($existingSeller["brand_name"]); ?></strong>.
+                       Our team will review it shortly.</p>
+
+                    <div style="display:flex;gap:0;margin:1.5rem 0;text-align:center">
+                        <?php
+                        $steps = [
+                            ["fas fa-paper-plane","Submitted",   "done"],
+                            ["fas fa-search",     "Under Review","current"],
+                            ["fas fa-check-circle","Decision",   "pending"],
+                        ];
+                        foreach ($steps as $i => [$ico, $label, $state]):
+                            $col = $state === "done" ? "var(--forest)" : ($state === "current" ? "var(--gold)" : "var(--muted)");
+                        ?>
+                        <div style="flex:1">
+                            <div style="width:36px;height:36px;border-radius:50%;background:<?php echo $col; ?>;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto .4rem;font-size:.9rem">
+                                <i class="fas <?php echo $ico; ?>"></i>
+                            </div>
+                            <div style="font-size:.75rem;font-weight:600;color:<?php echo $col; ?>"><?php echo $label; ?></div>
+                        </div>
+                        <?php if ($i < 2): ?>
+                        <div style="flex:0 0 40px;display:flex;align-items:center;padding-bottom:1.4rem">
+                            <div style="height:2px;width:100%;background:var(--line)"></div>
+                        </div>
+                        <?php endif; ?>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <p style="font-size:.85rem;text-align:left">
+                        <strong>What to expect:</strong><br>
+                        Reviews typically take 1–2 business days. Once approved your Seller Hub will be activated
+                        and your products will go live in the marketplace.
+                    </p>
+                    <div class="form-actions" style="margin-top:1.5rem">
+                        <a href="shop.php" class="btn btn-primary"><i class="fas fa-store"></i> Back to Shop</a>
+                        <a href="messages.php" class="btn btn-secondary"><i class="fas fa-envelope"></i> Contact Admin</a>
                     </div>
                 </div>
+
+            <?php elseif ($existingSeller && $existingSeller["approval_status"] === "approved"): ?>
+                <!-- Approved -->
+                <div class="already-seller">
+                    <div class="icon" style="color:var(--forest)"><i class="fas fa-check-circle"></i></div>
+                    <h2>You're an Approved Seller!</h2>
+                    <p>Your brand <strong><?php echo htmlspecialchars($existingSeller["brand_name"]); ?></strong> is live.
+                       Manage your listings and orders in your Seller Hub.</p>
+                    <div class="form-actions">
+                        <a href="sellers_hub.php" class="btn btn-primary"><i class="fas fa-th-large"></i> Go to Seller Hub</a>
+                    </div>
+                </div>
+
             <?php else: ?>
-                <!-- Registration Form -->
-                <h1><i class="fas fa-store"></i> Become a Seller</h1>
-                <p>Join Pastimes as a seller and reach our community of fashion enthusiasts.</p>
+                <!-- Application form — shown for new applicants AND rejected sellers resubmitting -->
+                <?php if ($existingSeller && $existingSeller["approval_status"] === "rejected"): ?>
+                <div class="alert alert-error">
+                    <i class="fas fa-times-circle"></i>
+                    <div>
+                        <strong>Previous application not approved.</strong>
+                        Update your details below and resubmit, or
+                        <a href="messages.php" style="color:inherit;font-weight:700">contact admin</a> for more information.
+                    </div>
+                </div>
+                <h1><i class="fas fa-store"></i> Resubmit Application</h1>
+                <p>Update your brand details and try again.</p>
+                <?php else: ?>
+                <h1><i class="fas fa-store"></i> Sell on Pastimes</h1>
+                <p>Join our community of independent sellers. Fill in your brand details — we'll review your application within 1–2 business days.</p>
+                <?php endif; ?>
 
                 <?php if ($error_message): ?>
                 <div class="alert alert-error">
@@ -404,63 +467,49 @@ mysqli_close($conn);
                 </div>
                 <?php endif; ?>
 
-                <?php if ($success_message): ?>
-                <div class="alert alert-success">
-                    <i class="fas fa-check-circle"></i>
-                    <span><?php echo htmlspecialchars($success_message); ?></span>
-                </div>
-                <?php endif; ?>
-
                 <form method="POST">
                     <div class="form-group">
-                        <label for="brand_name">
-                            Brand Name <span>*</span>
-                        </label>
-                        <input 
-                            type="text" 
-                            id="brand_name" 
-                            name="brand_name" 
-                            placeholder="e.g., Threads & Dreams"
-                            minlength="3"
-                            maxlength="100"
-                            required
-                        >
+                        <label for="brand_name">Brand Name <span>*</span></label>
+                        <input type="text" id="brand_name" name="brand_name"
+                               placeholder="e.g., Threads &amp; Dreams"
+                               value="<?php echo htmlspecialchars($existingSeller["brand_name"] ?? "", ENT_QUOTES); ?>"
+                               minlength="3" maxlength="100" required>
                         <div class="char-count" id="brand-count">0 / 100 characters</div>
                     </div>
 
                     <div class="form-group">
-                        <label for="description">
-                            Brand Description <span>*</span>
-                        </label>
-                        <textarea 
-                            id="description" 
-                            name="description" 
-                            placeholder="Tell customers about your brand, your style, and what makes you unique..."
-                            minlength="10"
-                            maxlength="500"
-                            required
-                        ></textarea>
+                        <label for="description">About Your Brand &amp; What You'll Sell <span>*</span></label>
+                        <textarea id="description" name="description"
+                                  placeholder="Describe your brand, your style, and the types of items you plan to sell on Pastimes…"
+                                  minlength="10" maxlength="500" required><?php echo htmlspecialchars($existingSeller["description"] ?? "", ENT_QUOTES); ?></textarea>
                         <div class="char-count" id="desc-count">0 / 500 characters</div>
                     </div>
 
                     <div class="form-group">
-                        <label for="phone">
-                            Phone Number <span>*</span>
+                        <label for="phone">Contact Phone Number <span>*</span></label>
+                        <input type="tel" id="phone" name="phone"
+                               placeholder="e.g., 061 234 5678"
+                               value="<?php echo htmlspecialchars($existingSeller["phone"] ?? "", ENT_QUOTES); ?>"
+                               pattern="[0-9\s\-\+\(\)]+" required>
+                        <div class="char-count">Used by admin to contact you during review</div>
+                    </div>
+
+                    <div class="form-group" style="background:var(--sand);border-radius:var(--radius-sm);padding:.9rem 1rem">
+                        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-weight:400">
+                            <input type="checkbox" name="agree_terms" required
+                                   style="width:16px;height:16px;margin-top:3px;flex-shrink:0;accent-color:var(--forest)">
+                            <span style="font-size:.88rem;color:var(--muted)">
+                                I agree to the Pastimes
+                                <strong style="color:var(--ink)">Seller Terms</strong>:
+                                I will only list authentic items I own, accurately describe their condition,
+                                and fulfil orders in a timely manner.
+                            </span>
                         </label>
-                        <input 
-                            type="tel" 
-                            id="phone" 
-                            name="phone" 
-                            placeholder="e.g., 061 234 5678"
-                            pattern="[0-9\s\-\+\(\)]+"
-                            required
-                        >
-                        <div class="char-count">For admin contact</div>
                     </div>
 
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-check-circle"></i> Register as Seller
+                            <i class="fas fa-paper-plane"></i> Submit Application
                         </button>
                         <a href="shop.php" class="btn btn-secondary">
                             <i class="fas fa-arrow-left"></i> Cancel

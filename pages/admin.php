@@ -139,9 +139,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["product_action"])) {
         $allowed = ["jpg","jpeg","png","gif","webp"];
         if (!in_array($ext, $allowed, true)) return null;
         /* Verify the real MIME type from file content, not just the filename extension */
-        $finfo    = finfo_open(FILEINFO_MIME_TYPE);
-        $mimeType = finfo_file($finfo, $_FILES["pimage"]["tmp_name"]);
-        finfo_close($finfo);
+        $finfo    = new finfo(FILEINFO_MIME_TYPE);
+        $mimeType = $finfo->file($_FILES["pimage"]["tmp_name"]);
         $allowedMimes = ["image/jpeg","image/png","image/gif","image/webp"];
         if (!in_array($mimeType, $allowedMimes, true)) return null;
         $fname = uniqid("prod_") . "." . $ext;
@@ -279,7 +278,7 @@ if (!in_array($sellerFilter, ["all","pending","approved","rejected"], true)) $se
 $swhere = $sellerFilter !== "all" ? " WHERE s.approval_status='" . mysqli_real_escape_string($conn,$sellerFilter) . "'" : "";
 $sellers = [];
 $sResult = mysqli_query($conn,
-    "SELECT s.seller_id, s.brand_name, s.phone, s.approval_status, s.created_date,
+    "SELECT s.seller_id, s.brand_name, s.description, s.phone, s.approval_status, s.created_date,
             u.name AS user_name, u.email AS user_email
      FROM tblseller s
      JOIN tblUser u ON s.user_id=u.user_id
@@ -573,13 +572,21 @@ mysqli_close($conn);
       <div class="empty"><i class="fas fa-store"></i>No seller applications found.</div>
     <?php else: ?>
     <table>
-      <thead><tr><th>Brand</th><th>Owner</th><th>Email</th><th>Phone</th><th>Applied</th><th>Status</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Brand</th><th>Owner</th><th>Email</th><th>Application Details</th><th>Phone</th><th>Applied</th><th>Status</th><th>Actions</th></tr></thead>
       <tbody>
         <?php foreach ($sellers as $s): ?>
         <tr>
           <td><strong><?php echo htmlspecialchars($s["brand_name"]); ?></strong></td>
           <td><?php echo htmlspecialchars($s["user_name"]); ?></td>
           <td><?php echo htmlspecialchars($s["user_email"]); ?></td>
+          <td style="max-width:220px">
+            <?php
+              $desc = $s["description"] ?? "";
+              $short = mb_strlen($desc) > 90 ? mb_substr($desc, 0, 90) . "…" : $desc;
+            ?>
+            <span title="<?php echo htmlspecialchars($desc, ENT_QUOTES); ?>"
+                  style="font-size:.8rem;color:var(--sec)"><?php echo htmlspecialchars($short); ?></span>
+          </td>
           <td><?php echo htmlspecialchars($s["phone"] ?? "—"); ?></td>
           <td><?php echo date("d M Y", strtotime($s["created_date"])); ?></td>
           <td>

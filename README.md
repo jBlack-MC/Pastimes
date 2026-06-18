@@ -66,38 +66,88 @@
 
 | Name | Username | Password | Access |
 | --- | --- | --- | --- |
-| Thabo Nkosi | thabo_admin | admin123 | Full admin panel — cannot shop |
+| Thabo Nkosi | `thabo_admin` | `admin123` | Full admin panel — cannot shop |
 
 The admin manages the entire platform: approves new registrations, activates
 seller accounts, edits and removes products, monitors all orders, and responds
 to customer support tickets and messages.
 
+> **Note:** The admin logs in at `login.php` using the `tbladmin` table — a
+> separate credential store from regular users.
+
+---
+
 ### Sellers (approved — products visible in shop)
 
-| Name | Username | Password | Brand / Specialty |
-| --- | --- | --- | --- |
-| Amahle Dube | amahle_threads | amahle123 | Vintage streetwear and denim |
-| Sipho Cele | sipho_style | sipho123 | Smart-casual and formal wear |
-| Priya Naidoo | priya_boutique | priya123 | Handcrafted accessories and knitwear |
+Sellers log in through the same `login.php` as customers. After logging in they
+can navigate to **Seller Hub** to manage listings and update order statuses.
+All three accounts below are pre-approved so their products appear in the shop
+immediately after import.
 
-Sellers register through the Seller Hub, wait for admin approval, then list
-their own products. Products from unapproved sellers do not appear in the shop.
+| Name | Username | Password | Brand | Specialty |
+| --- | --- | --- | --- | --- |
+| Amahle Dube | `amahle_threads` | `amahle123` | Amahle Threads | Vintage streetwear and denim |
+| Sipho Cele | `sipho_style` | `sipho123` | Sipho Style | Smart-casual and formal menswear |
+| Priya Naidoo | `priya_boutique` | `priya123` | Priya Boutique | Handcrafted accessories and knitwear |
+
+**Products per seller after import:**
+
+| Seller | Products listed |
+| --- | --- |
+| Amahle Threads | Linen Blend Shirt, Vintage Denim Jacket |
+| Sipho Style | Organic Cotton Tee, French Terry Joggers, Full-Grain Belt |
+| Priya Boutique | Handwoven Scarf, Linen Midi Dress |
+
+> Products from unapproved sellers do **not** appear in the shop. Sellers who
+> register after import start with `approval_status = 'pending'` and must be
+> activated by the admin before their listings go live.
+
+---
 
 ### Customers (buyers)
 
 | Name | Username | Password | Notes |
 | --- | --- | --- | --- |
-| John Mokoena | john123 | 123456 | Active — has existing orders |
-| Jane Botha | jane123 | 123456 | Active |
-| Mike Peters | mike123 | 123456 | Active |
-| Sara Nxumalo | sara123 | 123456 | Active |
-| Lebo Khumalo | lebo123 | 123456 | Active |
-| Zanele Moyo | zanele123 | 123456 | Active |
-| Unathi Buyer | unathi_buys | unathi123 | Active — used for POE demonstration |
+| John Mokoena | `john123` | `123456` | Active — use for placing and cancelling orders |
+| Jane Botha | `jane123` | `123456` | Active |
+| Mike Peters | `mike123` | `123456` | Active |
+| Sara Nxumalo | `sara123` | `123456` | Active |
+| Lebo Khumalo | `lebo123` | `123456` | Active |
+| Zanele Moyo | `zanele123` | `123456` | Active |
+| Unathi Buyer | `unathi_buys` | `unathi123` | Active — recommended for POE demonstration |
 
 > New registrations start as **pending** and cannot log in until an admin
 > approves the account. This mirrors a real marketplace where the platform
 > owner verifies new members before granting access.
+
+---
+
+## Key Features by Role
+
+### Admin
+
+- Full CRUD over users, products, and categories
+- Approve / reject seller applications and pending customer registrations
+- Monitor all orders across the platform
+- Messaging dashboard (inbox / reply)
+
+### Seller
+
+- Register a seller brand (pending admin approval)
+- List, edit, and delete own product listings with image upload
+- View orders containing their products with per-product quantity breakdown
+- Advance order status: **Pending → Shipped → Delivered**
+- Track total revenue from own listings
+
+### Customer
+
+- Browse the shop, filter by category
+- Add to cart (AJAX, persisted in database), update quantities, remove items
+- Checkout with delivery address; order confirmed with session ID
+- View full order history with grand total of all purchases
+- **Cancel** a pending order (stock automatically restored)
+- Leave a **star rating and review** on any delivered product (one review per product)
+- Messaging: contact admin support
 
 ---
 
@@ -170,7 +220,9 @@ After a successful order the confirmation page displays:
 ### Seller Hub
 
 - Sellers register their brand and list garments with photos.
-- View incoming orders and lifetime revenue for their listings.
+- View incoming orders with a per-product breakdown of their items in each order.
+- Update order status: **pending → shipped → delivered**.
+- View lifetime revenue for their listings.
 
 ---
 
@@ -178,13 +230,14 @@ After a successful order the confirmation page displays:
 
 | Table | Purpose |
 | --- | --- |
-| `tbluser` | Registered customers (`status`: pending / active, `role`: user / admin) |
+| `tbluser` | Registered customers and sellers (`status`: pending / active) |
 | `tbladmin` | Admin credentials (separate from tbluser) |
 | `tblclothes` | Product catalogue (name, price, stock, image, seller) |
 | `tblseller` | Seller profiles and approval status |
 | `tblcart` | Active cart items per user |
-| `tblorder` | Order headers (total, address, status) |
+| `tblorder` | Order headers (total, address, status: pending / shipped / delivered / cancelled) |
 | `tblorderline` | Order line items (product, quantity, unit price) |
+| `tblreview` | Customer product reviews (rating 1–5, comment; one per user per product; created at runtime) |
 | `tblmessage` | User ↔ admin messages |
 
 ---

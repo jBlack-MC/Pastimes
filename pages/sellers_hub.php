@@ -33,7 +33,7 @@ if ($sellerStmt) {
     }
 }
 
-if (!$seller_id) {
+if (!$seller_id || $seller_status !== "approved") {
     header("Location: seller_register.php");
     exit;
 }

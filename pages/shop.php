@@ -54,6 +54,17 @@ if ($cStmt) {
     mysqli_stmt_close($cStmt);
 }
 
+/* Check if the logged-in user has a seller application so the nav can reflect their state */
+$sellerStatus = null;
+$ssChk = mysqli_prepare($conn, "SELECT approval_status FROM tblseller WHERE user_id = ? LIMIT 1");
+if ($ssChk) {
+    mysqli_stmt_bind_param($ssChk, "i", $user_id);
+    mysqli_stmt_execute($ssChk);
+    $ssRow = mysqli_fetch_assoc(mysqli_stmt_get_result($ssChk));
+    mysqli_stmt_close($ssChk);
+    $sellerStatus = $ssRow ? $ssRow["approval_status"] : null;
+}
+
 /* Close the database connection before rendering HTML */
 mysqli_close($conn);
 ?>
@@ -135,7 +146,15 @@ mysqli_close($conn);
       <a href="my_orders.php">My Orders</a>
       <a href="messages.php"><i class="fas fa-envelope"></i></a>
       <a href="report.php"><i class="fas fa-flag"></i></a>
-      <a href="sellers_hub.php">Seller Hub</a>
+      <?php if ($sellerStatus === "approved"): ?>
+        <a href="sellers_hub.php"><i class="fas fa-store"></i> Seller Hub</a>
+      <?php elseif ($sellerStatus === "pending"): ?>
+        <a href="seller_register.php" class="secondary" style="color:#c26743;border-color:#c26743"><i class="fas fa-hourglass-half"></i> Application Pending</a>
+      <?php elseif ($sellerStatus === "rejected"): ?>
+        <a href="seller_register.php" class="secondary"><i class="fas fa-store"></i> Sell on Pastimes</a>
+      <?php else: ?>
+        <a href="seller_register.php"><i class="fas fa-store"></i> Sell on Pastimes</a>
+      <?php endif; ?>
       <?php if ($role === "admin"): ?><a href="admin.php">Admin</a><?php endif; ?>
       <a class="secondary" href="logout.php">Logout</a>
     </nav>

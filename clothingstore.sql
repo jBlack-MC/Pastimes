@@ -136,30 +136,47 @@ CREATE TABLE `tblseller` (
 --
 
 INSERT INTO `tbladmin` (`admin_id`, `username`, `password`) VALUES
-(1, 'admin123', '$2y$10$/e6yYcBMdMYZo8FZoYZHOufWCkJJj4Emlw7HTOa.4MPrp.0GFgFOK');
+(1, 'thabo_admin', '$2y$12$KnAU2YCWpFePeXDomUCyiO7ZlEWB0P0KxRMEWGK2VlDH8p6pOnO26');
 
 --
 -- Dumping data for table `tbluser`
 --
 
 INSERT INTO `tbluser` (`user_id`, `name`, `email`, `username`, `password`, `status`) VALUES
-(1, 'John Doe', 'john@gmail.com', 'john123', '$2y$12$F4xsB32AmjKjTsLr2rmK0ePxqhGwmqIWS.N3IxWN/WnYakvpcfqGu', 'active'),
-(2, 'Jane Smith', 'jane@gmail.com', 'jane123', '$2y$12$e7FgLYDvAqCbYONj53vzQuvxY7go22.wymZCbArJDo.PXgkhiRWoa', 'active'),
-(3, 'Mike Lee', 'mike@gmail.com', 'mike123', '$2y$12$vxzAd48g5kDW5mRBXOwGae2VlDgcQy6AdSWodf8uS3O7VvFC8jXii', 'active'),
-(4, 'Sara Khan', 'sara@gmail.com', 'sara123', '$2y$12$KSqv7aYv9AjLnflcWaG94OJH9bOueoOK.EEMBbS25bJ.SUSp0RD6a', 'active');
+(1,  'John Mokoena',  'john@gmail.com',    'john123',         '$2y$12$F4xsB32AmjKjTsLr2rmK0ePxqhGwmqIWS.N3IxWN/WnYakvpcfqGu', 'active'),
+(2,  'Jane Botha',    'jane@gmail.com',    'jane123',         '$2y$12$e7FgLYDvAqCbYONj53vzQuvxY7go22.wymZCbArJDo.PXgkhiRWoa',  'active'),
+(3,  'Mike Peters',   'mike@gmail.com',    'mike123',         '$2y$12$vxzAd48g5kDW5mRBXOwGae2VlDgcQy6AdSWodf8uS3O7VvFC8jXii',  'active'),
+(4,  'Sara Nxumalo',  'sara@gmail.com',    'sara123',         '$2y$12$KSqv7aYv9AjLnflcWaG94OJH9bOueoOK.EEMBbS25bJ.SUSp0RD6a',  'active'),
+(5,  'Lebo Khumalo',  'lebo@gmail.com',    'lebo123',         '$2y$12$/8lxa8rqVbwl51dzGdnVHupZnO7nRftCzOTluM9cKPBAjiQNUtsrq',   'active'),
+(6,  'Zanele Moyo',   'zanele@gmail.com',  'zanele123',       '$2y$12$/8lxa8rqVbwl51dzGdnVHupZnO7nRftCzOTluM9cKPBAjiQNUtsrq',   'active'),
+(7,  'Unathi Buyer',  'unathi@gmail.com',  'unathi_buys',     '$2y$12$yLQ2KOuQiwq7GmC6hL/jsebNDioqB5EMsys7iH5e2pwdmGv2Pyp9C',   'active'),
+-- sellers (also registered as users so they can browse the shop)
+(8,  'Amahle Dube',   'amahle@gmail.com',  'amahle_threads',  '$2y$12$bZ3d8E8oPZ6V1bd.cOxNq.sbButq6zmWM8kvEn/nH2rcmMlXhNE7q',  'active'),
+(9,  'Sipho Cele',    'sipho@gmail.com',   'sipho_style',     '$2y$12$uUMceuJTavn2yZajKWalQeteZIYFs26Ql2Gc21/2T8T3/kdKOBGTK',   'active'),
+(10, 'Priya Naidoo',  'priya@gmail.com',   'priya_boutique',  '$2y$12$Yf5rOTSGILMv6QDmcStTqOtiIfKPZcD4zhH1.FU3MV1syEYxO42Ly',  'active');
 
 --
 -- Dumping data for table `tblclothes`
 --
 
-INSERT INTO `tblclothes` (`product_id`, `user_id`, `name`, `description`, `price`, `image`, `brand`, `stock`) VALUES
-(1, 1, 'Organic Cotton Tee', 'Soft, breathable everyday wear made from organic cotton.', 24.90, 'organic-cotton-tee.jpg', 'Heritage Basics', 25),
-(2, 1, 'Linen Blend Shirt', 'Lightweight linen-cotton blend shirt for warm weather.', 49.50, 'linen-blend-shirt.jpg', 'Thread and Oak', 18),
-(3, 1, 'Vintage Denim Jacket', 'Classic blue denim jacket with a durable worn-in finish.', 79.00, 'vintage-denim-jacket.jpg', 'Urban Rewind', 12),
-(4, 1, 'Handwoven Scarf', 'Artisan wool scarf with a soft handwoven finish.', 34.99, 'handwoven-scarf.jpg', 'Wool and Weave', 30),
-(5, 1, 'French Terry Joggers', 'Eco-friendly french terry joggers with tapered ankles.', 42.00, 'french-terry-joggers.jpg', 'Cozy Nest', 20),
-(6, 1, 'Full-Grain Belt', 'Genuine full-grain leather belt with brass buckle.', 28.99, 'full-grain-belt.jpg', 'Leathercraft Co', 15),
-(7, 1, 'Linen Midi Dress', 'Flowy linen dress with adjustable straps.', 67.00, 'linen-midi-dress.jpg', 'Sunday Studio', 14);
+-- Seller profiles (all approved so their products appear in shop)
+INSERT INTO `tblseller` (`seller_id`, `user_id`, `brand_name`, `description`, `phone`, `approval_status`, `approved_date`) VALUES
+(1, 8,  'Amahle Threads',  'Vintage streetwear and denim from the 80s and 90s.',            '0712345678', 'approved', '2026-01-10 09:00:00'),
+(2, 9,  'Sipho Style',     'Smart-casual and formal menswear for every occasion.',           '0723456789', 'approved', '2026-01-12 10:30:00'),
+(3, 10, 'Priya Boutique',  'Handcrafted accessories, knitwear, and unique artisan pieces.',  '0734567890', 'approved', '2026-01-15 14:00:00');
+
+-- Products assigned to their respective sellers
+-- Amahle Threads: vintage/denim items (seller_id=1, user_id=8)
+-- Sipho Style: smart-casual items (seller_id=2, user_id=9)
+-- Priya Boutique: artisan/knitwear items (seller_id=3, user_id=10)
+INSERT INTO `tblclothes` (`product_id`, `user_id`, `seller_id`, `name`, `description`, `price`, `image`, `brand`, `stock`) VALUES
+(1, 9,  2, 'Organic Cotton Tee',    'Soft, breathable everyday wear made from organic cotton.',    24.90, 'organic-cotton-tee.jpg',    'Heritage Basics',  25),
+(2, 8,  1, 'Linen Blend Shirt',     'Lightweight linen-cotton blend shirt for warm weather.',      49.50, 'linen-blend-shirt.jpg',     'Thread and Oak',   18),
+(3, 8,  1, 'Vintage Denim Jacket',  'Classic blue denim jacket with a durable worn-in finish.',   79.00, 'vintage-denim-jacket.jpg',  'Urban Rewind',     12),
+(4, 10, 3, 'Handwoven Scarf',       'Artisan wool scarf with a soft handwoven finish.',            34.99, 'handwoven-scarf.jpg',       'Wool and Weave',   30),
+(5, 9,  2, 'French Terry Joggers',  'Eco-friendly french terry joggers with tapered ankles.',      42.00, 'french-terry-joggers.jpg',  'Cozy Nest',        20),
+(6, 9,  2, 'Full-Grain Belt',       'Genuine full-grain leather belt with brass buckle.',          28.99, 'full-grain-belt.jpg',       'Leathercraft Co',  15),
+(7, 10, 3, 'Linen Midi Dress',      'Flowy linen dress with adjustable straps.',                   67.00, 'linen-midi-dress.jpg',      'Sunday Studio',    14);
 
 --
 -- Indexes for dumped tables
@@ -245,7 +262,7 @@ ALTER TABLE `tblorder`
 -- AUTO_INCREMENT for table `tbluser`
 --
 ALTER TABLE `tbluser`
-  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `user_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `tblorderline`
@@ -263,7 +280,7 @@ ALTER TABLE `tblcart`
 -- AUTO_INCREMENT for table `tblseller`
 --
 ALTER TABLE `tblseller`
-  MODIFY `seller_id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `seller_id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- Constraints for dumped tables
