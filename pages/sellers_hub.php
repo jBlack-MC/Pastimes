@@ -84,20 +84,29 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["action"])) {
     } elseif ($stock < 0) {
         $error_message = "Stock cannot be negative.";
     } else {
-        /* Handle optional image upload for both add and edit */
+        /* Handle optional image upload – validate extension AND MIME type */
         $uploaded_image = null;
         if (isset($_FILES["product_image"]) && $_FILES["product_image"]["error"] === UPLOAD_ERR_OK) {
             $ext     = strtolower(pathinfo($_FILES["product_image"]["name"], PATHINFO_EXTENSION));
             $allowed = ["jpg", "jpeg", "png", "gif", "webp"];
             if (in_array($ext, $allowed, true)) {
-                $filename  = uniqid("img_") . "." . $ext;
-                $uploadDir = __DIR__ . "/../uploads/";
-                if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-                /* Move the uploaded file to the uploads directory */
-                if (move_uploaded_file($_FILES["product_image"]["tmp_name"], $uploadDir . $filename)) {
-                    $uploaded_image = $filename;
+                /* Verify real file content, not just the filename extension */
+                $finfo        = finfo_open(FILEINFO_MIME_TYPE);
+                $mimeType     = finfo_file($finfo, $_FILES["product_image"]["tmp_name"]);
+                finfo_close($finfo);
+                $allowedMimes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+                if (!in_array($mimeType, $allowedMimes, true)) {
+                    $error_message = "Invalid image file. Please upload a real JPG, PNG, GIF, or WEBP.";
                 } else {
-                    $error_message = "Image upload failed. Please try again.";
+                    $filename  = uniqid("img_") . "." . $ext;
+                    $uploadDir = __DIR__ . "/../uploads/";
+                    if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+                    /* Move the validated file to the uploads directory */
+                    if (move_uploaded_file($_FILES["product_image"]["tmp_name"], $uploadDir . $filename)) {
+                        $uploaded_image = $filename;
+                    } else {
+                        $error_message = "Image upload failed. Please try again.";
+                    }
                 }
             } else {
                 $error_message = "Only JPG, PNG, GIF, or WEBP images are allowed.";
@@ -192,18 +201,43 @@ if ($seller_id) {
     }
 }
 
-/* Fetch seller order stats */
+/* Fetch seller summary stats (order count + lifetime revenue) */
 $orderCount = 0; $totalRevenue = 0.0;
-$oStmt = mysqli_query($conn,
+$oSummary = mysqli_prepare($conn,
     "SELECT COUNT(DISTINCT ol.order_id) AS orders, COALESCE(SUM(ol.quantity * ol.unit_price),0) AS revenue
      FROM tblorderline ol
      JOIN tblclothes c ON ol.product_id = c.product_id
-     WHERE c.seller_id = $seller_id"
+     WHERE c.seller_id = ?"
 );
-if ($oStmt) {
-    $oRow = mysqli_fetch_assoc($oStmt);
+if ($oSummary) {
+    mysqli_stmt_bind_param($oSummary, "i", $seller_id);
+    mysqli_stmt_execute($oSummary);
+    $oRow = mysqli_fetch_assoc(mysqli_stmt_get_result($oSummary));
+    mysqli_stmt_close($oSummary);
     $orderCount   = (int)($oRow["orders"] ?? 0);
     $totalRevenue = (float)($oRow["revenue"] ?? 0);
+}
+
+/* Fetch individual orders that contain this seller's products (for the Orders tab) */
+$sellerOrders = [];
+$soStmt = mysqli_prepare($conn,
+    "SELECT o.order_id, o.order_date, o.status,
+            SUM(ol.quantity) AS total_items,
+            SUM(ol.quantity * ol.unit_price) AS order_revenue
+     FROM tblorder o
+     JOIN tblorderline ol ON o.order_id = ol.order_id
+     JOIN tblclothes c ON ol.product_id = c.product_id
+     WHERE c.seller_id = ?
+     GROUP BY o.order_id, o.order_date, o.status
+     ORDER BY o.order_date DESC
+     LIMIT 50"
+);
+if ($soStmt) {
+    mysqli_stmt_bind_param($soStmt, "i", $seller_id);
+    mysqli_stmt_execute($soStmt);
+    $soResult = mysqli_stmt_get_result($soStmt);
+    while ($row = mysqli_fetch_assoc($soResult)) $sellerOrders[] = $row;
+    mysqli_stmt_close($soStmt);
 }
 
 mysqli_close($conn);
@@ -377,7 +411,36 @@ mysqli_close($conn);
 
   <!-- Orders panel -->
   <div id="tab-orders" class="panel" style="display:none">
-    <p style="color:var(--muted);font-size:.9rem">Order details are managed by the admin. Visit <a href="messages.php" style="color:var(--green)">Messages</a> to contact support.</p>
+    <?php if (!$sellerOrders): ?>
+      <div class="empty"><i class="fas fa-receipt"></i>No orders yet for your products.</div>
+    <?php else: ?>
+    <table>
+      <thead>
+        <tr>
+          <th>Order #</th>
+          <th>Date</th>
+          <th>Items</th>
+          <th>Revenue</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($sellerOrders as $so): ?>
+        <tr>
+          <td><strong>ORD-<?php echo str_pad((int)$so["order_id"], 8, "0", STR_PAD_LEFT); ?></strong></td>
+          <td><?php echo date("d M Y", strtotime($so["order_date"])); ?></td>
+          <td><?php echo (int)$so["total_items"]; ?></td>
+          <td style="color:var(--rust);font-weight:700">$<?php echo number_format((float)$so["order_revenue"], 2); ?></td>
+          <td>
+            <span class="sbadge <?php echo $so["status"] === "delivered" ? "" : "out"; ?>">
+              <?php echo ucfirst(htmlspecialchars($so["status"])); ?>
+            </span>
+          </td>
+        </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+    <?php endif; ?>
   </div>
 </div>
 

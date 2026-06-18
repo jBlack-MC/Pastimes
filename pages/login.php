@@ -56,6 +56,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $isValid = password_verify($password, $user["password"]);
 
                     if ($isValid) {
+                        /* Regenerate session ID on login to prevent session fixation attacks */
+                        session_regenerate_id(true);
                         $_SESSION["user_id"] = (int)$user["user_id"];
                         $_SESSION["username"] = $user["username"];
                         $_SESSION["name"] = $user["name"];
@@ -87,6 +89,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     $isAdminValid = password_verify($password, $admin["password"]);
 
                     if ($isAdminValid) {
+                        /* Regenerate session ID on login to prevent session fixation attacks */
+                        session_regenerate_id(true);
                         $_SESSION["user_id"] = (int)$admin["admin_id"];
                         $_SESSION["username"] = $admin["username"];
                         $_SESSION["name"] = $admin["username"];

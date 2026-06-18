@@ -181,8 +181,8 @@ if ($existingItem) {
         exit;
     }
 
-    // Add new item to cart
-    $insertStmt = mysqli_prepare($conn, "INSERT INTO tblcart (user_id, product_id, quantity) VALUES (?, ?, 1)");
+    /* Insert new cart row with the correct quantity in a single statement */
+    $insertStmt = mysqli_prepare($conn, "INSERT INTO tblcart (user_id, product_id, quantity) VALUES (?, ?, ?)");
     if (!$insertStmt) {
         http_response_code(500);
         echo json_encode([
@@ -191,26 +191,10 @@ if ($existingItem) {
         ]);
         exit;
     }
-    
-    mysqli_stmt_bind_param($insertStmt, "ii", $user_id, $product_id);
+
+    mysqli_stmt_bind_param($insertStmt, "iii", $user_id, $product_id, $requestedQuantity);
     $success = mysqli_stmt_execute($insertStmt);
     mysqli_stmt_close($insertStmt);
-
-    if ($success && $requestedQuantity > 1) {
-        $setQuantityStmt = mysqli_prepare($conn, "UPDATE tblcart SET quantity = ? WHERE user_id = ? AND product_id = ?");
-        if (!$setQuantityStmt) {
-            http_response_code(500);
-            echo json_encode([
-                "success" => false,
-                "message" => "Database error: " . mysqli_error($conn)
-            ]);
-            exit;
-        }
-
-        mysqli_stmt_bind_param($setQuantityStmt, "iii", $requestedQuantity, $user_id, $product_id);
-        $success = mysqli_stmt_execute($setQuantityStmt);
-        mysqli_stmt_close($setQuantityStmt);
-    }
     
     if ($success) {
         if (empty($_SERVER["HTTP_X_REQUESTED_WITH"])) {
