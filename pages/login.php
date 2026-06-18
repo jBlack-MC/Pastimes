@@ -26,6 +26,12 @@ if (isset($_GET["verified"]) && $_GET["verified"] === "1") {
     $messageType = "success";
 }
 
+/* Shown after a successful new registration */
+if (isset($_GET["registered"]) && $_GET["registered"] === "1" && $message === "") {
+    $message = "Account created! You can now sign in.";
+    $messageType = "success";
+}
+
 /* Shown when the tab guard detects a different user logged in on another tab */
 if (isset($_GET["sc"]) && $_GET["sc"] === "1" && $message === "") {
     $message = "Another account signed in on a different tab. Please sign in again.";

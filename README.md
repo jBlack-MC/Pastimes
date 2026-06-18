@@ -1,6 +1,6 @@
 # Pastimes Threads — Clothing Marketplace
 
-**Pastimes Threads** is a PHP 8 / MySQL e-commerce web application built for the **WEDE6021  POE** assessment.
+**Pastimes Threads** is a PHP 8 / MySQL e-commerce web application built for the **WEDE6021 POE** assessment.
 
 ---
 
@@ -27,6 +27,8 @@
 | Icons | Font Awesome 6 |
 | Server | Apache (XAMPP recommended) |
 
+> No external PHP packages or Composer dependencies — the project runs on a plain XAMPP stack.
+
 ---
 
 ## Setup Instructions
@@ -40,7 +42,7 @@
 
 1. Copy the project folder into your web root:
 
-   ```batch
+   ```text
    C:\xampp\htdocs\Pastimes\
    ```
 
@@ -58,6 +60,8 @@
    http://localhost/Pastimes/
    ```
 
+> Tables for reviews (`tblreview`) and messages (`tblmessage`) are created automatically at runtime if they do not exist — no manual SQL is needed for these.
+
 ---
 
 ## Test Accounts
@@ -68,21 +72,15 @@
 | --- | --- | --- | --- |
 | Thabo Nkosi | `thabo_admin` | `admin123` | Full admin panel — cannot shop |
 
-The admin manages the entire platform: approves new registrations, activates
-seller accounts, edits and removes products, monitors all orders, and responds
-to customer support tickets and messages.
+The admin manages the entire platform: activates seller accounts, edits and removes products, monitors all orders, and responds to customer and seller messages.
 
-> **Note:** The admin logs in at `login.php` using the `tbladmin` table — a
-> separate credential store from regular users.
+> **Note:** The admin logs in at `login.php` using the `tbladmin` table — a separate credential store from regular users.
 
 ---
 
 ### Sellers (approved — products visible in shop)
 
-Sellers log in through the same `login.php` as customers. After logging in they
-can navigate to **Seller Hub** to manage listings and update order statuses.
-All three accounts below are pre-approved so their products appear in the shop
-immediately after import.
+Sellers log in through the same `login.php` as customers. After logging in they can navigate to **Seller Hub** to manage listings and update order statuses. All three accounts below are pre-approved so their products appear in the shop immediately after import.
 
 | Name | Username | Password | Brand | Specialty |
 | --- | --- | --- | --- | --- |
@@ -98,9 +96,7 @@ immediately after import.
 | Sipho Style | Organic Cotton Tee, French Terry Joggers, Full-Grain Belt |
 | Priya Boutique | Handwoven Scarf, Linen Midi Dress |
 
-> Products from unapproved sellers do **not** appear in the shop. Sellers who
-> register after import start with `approval_status = 'pending'` and must be
-> activated by the admin before their listings go live.
+> Products from unapproved sellers do **not** appear in the shop. Sellers who register after import start with `approval_status = 'pending'` and must be activated by the admin before their listings go live.
 
 ---
 
@@ -116,9 +112,7 @@ immediately after import.
 | Zanele Moyo | `zanele123` | `123456` | Active |
 | Unathi Buyer | `unathi_buys` | `unathi123` | Active — recommended for POE demonstration |
 
-> New registrations start as **pending** and cannot log in until an admin
-> approves the account. This mirrors a real marketplace where the platform
-> owner verifies new members before granting access.
+> New registrations are automatically activated — users can log in immediately after signing up.
 
 ---
 
@@ -127,9 +121,9 @@ immediately after import.
 ### Admin
 
 - Full CRUD over users, products, and categories
-- Approve / reject seller applications and pending customer registrations
+- Approve / reject seller applications
 - Monitor all orders across the platform
-- Messaging dashboard (inbox / reply)
+- Messaging dashboard: view and reply to messages from both customers and sellers (sellers shown with a **Seller** badge and brand name)
 
 ### Seller
 
@@ -138,6 +132,8 @@ immediately after import.
 - View orders containing their products with per-product quantity breakdown
 - Advance order status: **Pending → Shipped → Delivered**
 - Track total revenue from own listings
+- View all **customer reviews and ratings** left on their products
+- **Message admin** directly from Seller Hub — replies appear in the same thread
 
 ### Customer
 
@@ -147,7 +143,7 @@ immediately after import.
 - View full order history with grand total of all purchases
 - **Cancel** a pending order (stock automatically restored)
 - Leave a **star rating and review** on any delivered product (one review per product)
-- Messaging: contact admin support
+- Contact admin support via the Messages page
 
 ---
 
@@ -155,7 +151,7 @@ immediately after import.
 
 ```text
 Pastimes/
-├── index.php                   # Startup / landing page
+├── index.php                   # Landing page
 ├── clothingstore.sql           # Database schema + seed data
 ├── README.md                   # This file
 ├── config/
@@ -163,33 +159,33 @@ Pastimes/
 ├── data/
 │   └── userData.txt            # Sample user records
 ├── pages/
-│   ├── login.php               # Login (ProcessInput + Login functions)
-│   ├── register.php            # Registration → pending approval
-│   ├── shop.php                # Product grid with AddToCart + ShowCart
-│   ├── product.php             # Single product detail page
-│   ├── checkout.php            # Shopping cart (ShowCart / RemoveItem / qty update)
-│   ├── process_checkout.php    # Checkout form, order creation, confirmation
-│   ├── cart_add.php            # AJAX: AddItem (increases qty if duplicate)
-│   ├── cart_remove.php         # AJAX: RemoveItem
+│   ├── login.php               # Login (customers, sellers, admin)
+│   ├── register.php            # Customer registration (auto-activated)
+│   ├── shop.php                # Product grid with cart integration
+│   ├── product.php             # Single product detail + review form
+│   ├── checkout.php            # Shopping cart view
+│   ├── process_checkout.php    # Order creation and confirmation
+│   ├── cart_add.php            # AJAX: add item (increases qty if duplicate)
+│   ├── cart_remove.php         # AJAX: remove item
 │   ├── cart_update.php         # AJAX: update quantity
-│   ├── my_orders.php           # Order history + grand total of all purchases
-│   ├── sellers_hub.php         # Seller dashboard (list/manage products)
-│   ├── seller_register.php     # Seller application form
-│   ├── admin.php               # Admin: users + products full CRUD
+│   ├── my_orders.php           # Order history + grand total
+│   ├── sellers_hub.php         # Seller dashboard (products, orders, messages, reviews)
+│   ├── seller_register.php     # Seller brand application form
+│   ├── admin.php               # Admin: users + products CRUD
 │   ├── admin_orders.php        # Admin: order management
-│   ├── messages.php            # User inbox (buyer ↔ admin)
-│   ├── admin_messages.php      # Admin messaging dashboard
-│   └── logout.php              # EmptyCart session + destroy → login
+│   ├── messages.php            # Customer inbox (buyer ↔ admin)
+│   ├── admin_messages.php      # Admin messaging dashboard (customers + sellers)
+│   └── logout.php              # Session destroy → login
 └── uploads/                    # Product image uploads
 ```
 
 ---
 
-### Shopping Cart Functions
+## Core Functions
 
 | Function | File | Behaviour |
 | --- | --- | --- |
-| **Login** | `login.php` | Authenticates user; blocks `pending` accounts |
+| **Login** | `login.php` | Authenticates user against `tblUser` then `tbladmin` |
 | **ProcessInput** | `login.php`, `register.php` | Validates and sanitises all form fields |
 | **AddItem** | `cart_add.php` | AJAX; ON DUPLICATE KEY UPDATE increases qty |
 | **RemoveItem** | `cart_remove.php` | AJAX; removes one product line from cart |
@@ -198,31 +194,17 @@ Pastimes/
 
 Cart is persisted in `tblcart` (database), so items survive page navigation and browser back.
 
-### Checkout & Order Confirmation
+---
 
-After a successful order the confirmation page displays:
+## Checkout & Orders
+
+After a successful checkout the confirmation page shows:
 
 - **Order Number** — formatted as `ORD-00000001`
 - **Session ID** — the PHP `session_id()` for reference
-- Links to **My Orders** and **Return to Login**
+- Links to **My Orders** and **Return to Shop**
 
-### Order History (`My Orders`)
-
-- Lists every past order with date, status badge, and expandable item breakdown.
-- Shows the **grand total of all purchases** (sum across all orders) at the bottom.
-
-### Admin Panel
-
-- **Users** — add, edit, delete, verify (activate) pending accounts.
-- **Products** — add, edit, delete listings with image upload.
-- Protected by session role check (`role = 'admin'`).
-
-### Seller Hub
-
-- Sellers register their brand and list garments with photos.
-- View incoming orders with a per-product breakdown of their items in each order.
-- Update order status: **pending → shipped → delivered**.
-- View lifetime revenue for their listings.
+**My Orders** lists every past order with date, status badge, expandable item breakdown, and a **grand total** across all purchases at the bottom.
 
 ---
 
@@ -230,15 +212,15 @@ After a successful order the confirmation page displays:
 
 | Table | Purpose |
 | --- | --- |
-| `tbluser` | Registered customers and sellers (`status`: pending / active) |
-| `tbladmin` | Admin credentials (separate from tbluser) |
+| `tblUser` | Registered customers and sellers (`status`: active) |
+| `tbladmin` | Admin credentials (separate from tblUser) |
 | `tblclothes` | Product catalogue (name, price, stock, image, seller) |
 | `tblseller` | Seller profiles and approval status |
 | `tblcart` | Active cart items per user |
 | `tblorder` | Order headers (total, address, status: pending / shipped / delivered / cancelled) |
 | `tblorderline` | Order line items (product, quantity, unit price) |
-| `tblreview` | Customer product reviews (rating 1–5, comment; one per user per product; created at runtime) |
-| `tblmessage` | User ↔ admin messages |
+| `tblreview` | Customer product reviews (rating 1–5, comment; one per user per product) |
+| `tblmessage` | User ↔ admin messages (customers and sellers share the same table) |
 
 ---
 
@@ -248,7 +230,7 @@ After a successful order the confirmation page displays:
 - All queries use **prepared statements** — no raw string interpolation.
 - File uploads validate MIME type and extension.
 - Session regenerated on login to prevent session fixation.
-- **PRG pattern** on checkout prevents duplicate orders on browser refresh.
+- **PRG pattern** on checkout and message send prevents duplicate submissions on browser refresh.
 
 ---
 

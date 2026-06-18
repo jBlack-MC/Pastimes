@@ -38,6 +38,20 @@ if (!$seller_id || $seller_status !== "approved") {
     exit;
 }
 
+if (isset($_GET["msg"]) && $_GET["msg"] === "sent") {
+    $success_message = "Message sent to admin.";
+}
+
+mysqli_query($conn, "CREATE TABLE IF NOT EXISTS tblmessage (
+    message_id  INT AUTO_INCREMENT PRIMARY KEY,
+    sender_id   INT NOT NULL,
+    sender_name VARCHAR(100),
+    receiver_id INT NOT NULL,
+    message     TEXT NOT NULL,
+    is_read     TINYINT(1) DEFAULT 0,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)");
+
 /* ── UPDATE ORDER STATUS (seller: pending→shipped, shipped→delivered) ── */
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["seller_order_action"])) {
     $upd_order_id = (int)($_POST["upd_order_id"] ?? 0);
@@ -213,6 +227,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["action"])) {
     }
 }
 
+/* ── SEND MESSAGE TO ADMIN ── */
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["hub_message"])) {
+    $body = trim($_POST["hub_message"] ?? "");
+    if ($body !== "") {
+        $s = mysqli_prepare($conn,
+            "INSERT INTO tblmessage (sender_id, sender_name, receiver_id, message) VALUES (?,?,-1,?)"
+        );
+        if ($s) {
+            mysqli_stmt_bind_param($s, "iss", $user_id, $name, $body);
+            mysqli_stmt_execute($s);
+            mysqli_stmt_close($s);
+        }
+    }
+    header("Location: sellers_hub.php?tab=messages&msg=sent");
+    exit;
+}
+
 /* Fetch all products for this seller */
 $products = [];
 if ($seller_id) {
@@ -286,6 +317,74 @@ if ($sellerOrders) {
             $sellerOrderLines[$row["order_id"]][] = $row;
         }
     }
+}
+
+/* Fetch seller–admin message thread */
+$sellerMessages = [];
+$mStmt = mysqli_prepare($conn,
+    "SELECT message_id, sender_id, sender_name, message, is_read, created_at
+     FROM tblmessage
+     WHERE (sender_id=? AND receiver_id=-1)
+        OR (sender_id=-1 AND receiver_id=?)
+     ORDER BY created_at ASC"
+);
+if ($mStmt) {
+    mysqli_stmt_bind_param($mStmt, "ii", $user_id, $user_id);
+    mysqli_stmt_execute($mStmt);
+    $mRes = mysqli_stmt_get_result($mStmt);
+    while ($row = mysqli_fetch_assoc($mRes)) $sellerMessages[] = $row;
+    mysqli_stmt_close($mStmt);
+}
+
+/* Count unread replies from admin */
+$unreadAdmin = 0;
+$uStmt = mysqli_prepare($conn,
+    "SELECT COUNT(*) AS n FROM tblmessage WHERE sender_id=-1 AND receiver_id=? AND is_read=0"
+);
+if ($uStmt) {
+    mysqli_stmt_bind_param($uStmt, "i", $user_id);
+    mysqli_stmt_execute($uStmt);
+    $uRow = mysqli_fetch_assoc(mysqli_stmt_get_result($uStmt));
+    $unreadAdmin = (int)($uRow["n"] ?? 0);
+    mysqli_stmt_close($uStmt);
+}
+
+/* Mark admin replies to this seller as read */
+$markStmt = mysqli_prepare($conn,
+    "UPDATE tblmessage SET is_read=1 WHERE sender_id=-1 AND receiver_id=? AND is_read=0"
+);
+if ($markStmt) {
+    mysqli_stmt_bind_param($markStmt, "i", $user_id);
+    mysqli_stmt_execute($markStmt);
+    mysqli_stmt_close($markStmt);
+}
+
+/* Fetch reviews for this seller's products */
+$sellerReviews = [];
+mysqli_query($conn, "CREATE TABLE IF NOT EXISTS tblreview (
+    review_id   INT AUTO_INCREMENT PRIMARY KEY,
+    product_id  INT NOT NULL,
+    user_id     INT NOT NULL,
+    rating      TINYINT NOT NULL,
+    comment     TEXT,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_review (product_id, user_id)
+)");
+$rStmt = mysqli_prepare($conn,
+    "SELECT r.rating, r.comment, r.created_at,
+            c.name AS product_name, u.name AS reviewer_name
+     FROM tblreview r
+     JOIN tblclothes c ON r.product_id = c.product_id
+     JOIN tblUser u ON r.user_id = u.user_id
+     WHERE c.seller_id = ?
+     ORDER BY r.created_at DESC"
+);
+if ($rStmt) {
+    mysqli_stmt_bind_param($rStmt, "i", $seller_id);
+    mysqli_stmt_execute($rStmt);
+    $rRes = mysqli_stmt_get_result($rStmt);
+    while ($row = mysqli_fetch_assoc($rRes)) $sellerReviews[] = $row;
+    mysqli_stmt_close($rStmt);
 }
 
 mysqli_close($conn);
@@ -362,6 +461,15 @@ mysqli_close($conn);
     .empty i{font-size:2rem;margin-bottom:.5rem;display:block;opacity:.4}
     /* approval notice */
     .notice{background:#fef9ec;border:1px solid #f0d88a;border-radius:var(--md-r);padding:1rem;margin-bottom:1.2rem;font-size:.88rem;color:#7a5a10}
+    /* message thread */
+    .thread{min-height:200px;max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:.75rem;margin-bottom:1rem;padding:.2rem .4rem}
+    .bubble{max-width:80%;padding:.65rem .95rem;border-radius:var(--md-r);font-size:.86rem;line-height:1.5}
+    .bubble-me{background:var(--green);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
+    .bubble-admin{background:#f0f8f6;border:1px solid var(--border);color:var(--text);align-self:flex-start;border-bottom-left-radius:4px}
+    .bubble-meta{font-size:.66rem;margin-top:3px;opacity:.7}
+    .compose-hub textarea{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--sm-r);font-size:.86rem;font-family:inherit;resize:vertical;min-height:80px;margin-bottom:.6rem}
+    /* reviews */
+    .star-display{color:#d4a259;font-size:.95rem}
     @media(max-width:700px){th,td{font-size:.75rem;padding:7px 6px}.stats{grid-template-columns:1fr 1fr}}
   </style>
 </head>
@@ -376,7 +484,6 @@ mysqli_close($conn);
       <a href="shop.php">Shop</a>
       <a href="checkout.php"><i class="fas fa-shopping-cart"></i> Cart</a>
       <a href="my_orders.php">My Orders</a>
-      <a href="messages.php"><i class="fas fa-envelope"></i> Messages</a>
       <a href="logout.php">Logout</a>
     </nav>
   </header>
@@ -401,6 +508,13 @@ mysqli_close($conn);
   <div class="tabs">
     <button class="tab active" data-tab="products"><i class="fas fa-boxes"></i> My Products</button>
     <button class="tab" data-tab="orders"><i class="fas fa-receipt"></i> Sales & Orders</button>
+    <button class="tab" data-tab="messages">
+      <i class="fas fa-envelope"></i> Messages
+      <?php if ($unreadAdmin > 0): ?>
+        <span style="background:var(--rust);color:#fff;border-radius:30px;padding:1px 7px;font-size:.7rem;margin-left:4px"><?php echo $unreadAdmin; ?></span>
+      <?php endif; ?>
+    </button>
+    <button class="tab" data-tab="reviews"><i class="fas fa-star"></i> Reviews</button>
   </div>
 
   <!-- Products panel -->
@@ -533,6 +647,65 @@ mysqli_close($conn);
     </table>
     <?php endif; ?>
   </div>
+
+  <!-- Messages panel -->
+  <div id="tab-messages" class="panel" style="display:none">
+    <div class="thread" id="msgThread">
+      <?php if (!$sellerMessages): ?>
+        <div style="color:var(--muted);text-align:center;padding:2rem 0;font-size:.88rem">
+          <i class="fas fa-comment-dots" style="display:block;font-size:2rem;margin-bottom:.5rem;opacity:.3"></i>
+          No messages yet. Use the form below to contact the admin.
+        </div>
+      <?php else: ?>
+        <?php foreach ($sellerMessages as $m):
+          $isMe = (int)$m["sender_id"] === (int)$user_id;
+        ?>
+          <div class="bubble <?php echo $isMe ? 'bubble-me' : 'bubble-admin'; ?>">
+            <?php echo nl2br(htmlspecialchars($m["message"])); ?>
+            <div class="bubble-meta">
+              <?php echo $isMe ? 'You' : 'Admin'; ?> &middot;
+              <?php echo date("d M, g:i a", strtotime($m["created_at"])); ?>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      <?php endif; ?>
+    </div>
+    <div class="compose-hub">
+      <form method="POST" action="sellers_hub.php">
+        <textarea name="hub_message" placeholder="Questions about your listings, payout queries, platform issues — the admin team will reply here." required></textarea>
+        <button type="submit" class="btn btn-primary" style="font-size:.85rem"><i class="fas fa-paper-plane"></i> Send Message</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Reviews panel -->
+  <div id="tab-reviews" class="panel" style="display:none">
+    <?php if (!$sellerReviews): ?>
+      <div class="empty"><i class="fas fa-star"></i>No reviews yet — they appear here once customers rate your delivered products.</div>
+    <?php else: ?>
+    <table>
+      <thead>
+        <tr><th>Product</th><th>Reviewer</th><th>Rating</th><th>Comment</th><th>Date</th></tr>
+      </thead>
+      <tbody>
+        <?php foreach ($sellerReviews as $rv): ?>
+        <tr>
+          <td><strong><?php echo htmlspecialchars($rv["product_name"]); ?></strong></td>
+          <td style="font-size:.83rem"><?php echo htmlspecialchars($rv["reviewer_name"]); ?></td>
+          <td>
+            <span class="star-display">
+              <?php for ($i = 1; $i <= 5; $i++) echo $i <= (int)$rv["rating"] ? '&#9733;' : '&#9734;'; ?>
+            </span>
+            <span style="color:var(--muted);font-size:.75rem;margin-left:3px"><?php echo (int)$rv["rating"]; ?>/5</span>
+          </td>
+          <td style="max-width:220px;font-size:.83rem;color:var(--sec)"><?php echo nl2br(htmlspecialchars($rv["comment"] ?? "")); ?></td>
+          <td style="white-space:nowrap;font-size:.79rem;color:var(--muted)"><?php echo date("d M Y", strtotime($rv["created_at"])); ?></td>
+        </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+    <?php endif; ?>
+  </div>
 </div>
 
 <!-- Add/Edit product modal -->
@@ -580,8 +753,21 @@ mysqli_close($conn);
       const id = 'tab-' + btn.dataset.tab;
       document.querySelectorAll('.panel').forEach(p => p.style.display = 'none');
       document.getElementById(id).style.display = 'block';
+      if (btn.dataset.tab === 'messages') {
+        setTimeout(() => {
+          const t = document.getElementById('msgThread');
+          if (t) t.scrollTop = t.scrollHeight;
+        }, 30);
+      }
     });
   });
+
+  /* Auto-switch to the tab named in ?tab= (e.g. after PRG redirect from message send) */
+  const urlTab = new URLSearchParams(window.location.search).get('tab');
+  if (urlTab) {
+    const target = document.querySelector('[data-tab="' + urlTab + '"]');
+    if (target) target.click();
+  }
 
   /* Modal helpers */
   function openModal(title, action, data) {

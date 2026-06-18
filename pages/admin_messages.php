@@ -48,15 +48,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["reply_to"], $_POST["r
 $selectedUser = (int)($_GET["user"] ?? 0);
 if (isset($_GET["msg"]) && $_GET["msg"] === "sent") $flash = "Reply sent.";
 
-/* Fetch all users who have sent at least one message */
+/* Fetch all users who have sent at least one message (include seller flag) */
 $contacts = [];
 $cResult = mysqli_query($conn,
     "SELECT DISTINCT m.sender_id, u.name AS user_name, u.email,
-            SUM(m.is_read=0 AND m.sender_id<>-1) AS unread
+            SUM(m.is_read=0 AND m.sender_id<>-1) AS unread,
+            (s.seller_id IS NOT NULL) AS is_seller,
+            s.brand_name
      FROM tblmessage m
      JOIN tblUser u ON m.sender_id = u.user_id
+     LEFT JOIN tblseller s ON u.user_id = s.user_id AND s.approval_status = 'approved'
      WHERE m.sender_id > 0
-     GROUP BY m.sender_id, u.name, u.email
+     GROUP BY m.sender_id, u.name, u.email, s.seller_id, s.brand_name
      ORDER BY MAX(m.created_at) DESC"
 );
 if ($cResult) {
@@ -193,8 +196,16 @@ mysqli_close($conn);
              href="admin_messages.php?user=<?php echo (int)$c["sender_id"]; ?>">
             <div class="contact-avatar"><?php echo htmlspecialchars($initials); ?></div>
             <div class="contact-info">
-              <div class="contact-name"><?php echo htmlspecialchars($c["user_name"]); ?></div>
-              <div class="contact-email"><?php echo htmlspecialchars($c["email"]); ?></div>
+              <div class="contact-name">
+                <?php echo htmlspecialchars($c["user_name"]); ?>
+                <?php if ($c["is_seller"]): ?>
+                  <span style="background:#eef3f1;color:var(--green);font-size:.65rem;font-weight:700;padding:1px 7px;border-radius:20px;margin-left:5px;vertical-align:middle">Seller</span>
+                <?php endif; ?>
+              </div>
+              <div class="contact-email">
+                <?php echo $c["is_seller"] ? htmlspecialchars($c["brand_name"] ?? "") . ' · ' : ''; ?>
+                <?php echo htmlspecialchars($c["email"]); ?>
+              </div>
             </div>
             <?php if ((int)$c["unread"] > 0): ?>
               <div class="unread-dot" title="<?php echo (int)$c['unread']; ?> unread"></div>
