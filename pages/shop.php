@@ -10,6 +10,12 @@ if (!isset($_SESSION["user_id"])) {
     exit;
 }
 
+/* Admins belong in the admin panel, not the storefront */
+if (($_SESSION["role"] ?? "") === "admin") {
+    header("Location: admin.php");
+    exit;
+}
+
 /* Include database connection – provides $conn (MySQLi object) */
 require_once __DIR__ . "/../config/DBConn.php";
 
@@ -22,10 +28,12 @@ $user_id = (int)$_SESSION["user_id"];     // cast to int for prepared statements
    Ordered newest-first so fresh listings appear at the top. */
 $products = [];
 $result   = mysqli_query($conn,
-    "SELECT product_id, name, description, price, stock, image
-     FROM   tblclothes
-     WHERE  stock > 0
-     ORDER  BY created_at DESC"
+    "SELECT c.product_id, c.name, c.description, c.price, c.stock, c.image, c.brand
+     FROM   tblclothes c
+     LEFT JOIN tblseller s ON c.seller_id = s.seller_id
+     WHERE  c.stock > 0
+       AND  (c.seller_id IS NULL OR s.approval_status = 'approved')
+     ORDER  BY c.created_at DESC"
 );
 if ($result) {
     /* Build a plain PHP array of associative rows for use in the HTML loop */
@@ -84,8 +92,11 @@ mysqli_close($conn);
     .products-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem}
     .product-card{background:var(--white);border:1px solid var(--border);border-radius:var(--lg);padding:1rem;box-shadow:var(--sm);display:flex;flex-direction:column;transition:.2s}
     .product-card:hover{box-shadow:var(--md);transform:translateY(-2px)}
-    .product-img{width:100%;height:140px;border-radius:var(--md-r);background:linear-gradient(135deg,#e9e7e2,#f2efea);display:flex;align-items:center;justify-content:center;color:var(--green);font-size:2rem;margin-bottom:.8rem;overflow:hidden}
-    .product-img img{width:100%;height:100%;object-fit:cover}
+    .product-img{width:100%;height:160px;border-radius:var(--md-r);display:flex;align-items:center;justify-content:center;margin-bottom:.8rem;overflow:hidden;position:relative}
+    .product-img img{width:100%;height:100%;object-fit:cover;border-radius:var(--md-r)}
+    .product-img .img-placeholder{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border-radius:var(--md-r)}
+    .product-img .img-placeholder .initial{font-size:2.2rem;font-weight:800;color:#fff;line-height:1;text-shadow:0 2px 6px rgba(0,0,0,.18)}
+    .product-img .img-placeholder .icon{font-size:.85rem;color:rgba(255,255,255,.75);letter-spacing:.5px;text-transform:uppercase;font-weight:600}
     .product-card h3{font-size:.95rem;margin-bottom:.25rem;font-weight:700}
     .product-card p{color:var(--sec);font-size:.82rem;margin-bottom:.6rem;line-height:1.4;flex:1}
     .price{color:var(--rust);font-weight:700;margin-bottom:.7rem;font-size:1rem}
@@ -123,6 +134,7 @@ mysqli_close($conn);
       </div>
       <a href="my_orders.php">My Orders</a>
       <a href="messages.php"><i class="fas fa-envelope"></i></a>
+      <a href="report.php"><i class="fas fa-flag"></i></a>
       <a href="sellers_hub.php">Seller Hub</a>
       <?php if ($role === "admin"): ?><a href="admin.php">Admin</a><?php endif; ?>
       <a class="secondary" href="logout.php">Logout</a>
@@ -139,19 +151,33 @@ mysqli_close($conn);
     </div>
   <?php else: ?>
   <section class="products-grid">
-    <?php foreach ($products as $p):
+    <?php
+    $placeholderGradients = [
+      'linear-gradient(135deg,#2a6b5e,#3a8a7a)',
+      'linear-gradient(135deg,#c26743,#d4845a)',
+      'linear-gradient(135deg,#5a6e6e,#7a9090)',
+      'linear-gradient(135deg,#8b6914,#c49a30)',
+      'linear-gradient(135deg,#4a5568,#6b7280)',
+      'linear-gradient(135deg,#7c3d7c,#a855a8)',
+      'linear-gradient(135deg,#1e5247,#2a6b5e)',
+    ];
+    foreach ($products as $i => $p):
       $hasImg = !empty($p["image"]) && $p["image"] !== "placeholder-clothing.jpg"
                 && file_exists(__DIR__ . "/../uploads/" . $p["image"]);
       $desc = strlen($p["description"] ?? "") > 75
               ? substr($p["description"], 0, 75) . "…"
               : ($p["description"] ?? "");
+      $gradient = $placeholderGradients[$i % count($placeholderGradients)];
+      $initial  = mb_strtoupper(mb_substr($p["name"], 0, 1));
     ?>
     <article class="product-card">
       <div class="product-img">
         <?php if ($hasImg): ?>
           <img src="../uploads/<?php echo htmlspecialchars($p["image"]); ?>" alt="<?php echo htmlspecialchars($p["name"]); ?>">
         <?php else: ?>
-          <i class="fas fa-tshirt"></i>
+          <img src="pimg.php?id=<?php echo (int)$p['product_id']; ?>"
+               alt="<?php echo htmlspecialchars($p['name']); ?>"
+               style="width:100%;height:100%;object-fit:cover;border-radius:var(--md-r)">
         <?php endif; ?>
       </div>
       <h3><?php echo htmlspecialchars($p["name"]); ?></h3>
@@ -178,7 +204,10 @@ mysqli_close($conn);
     try {
       const res = await fetch('cart_add.php', {
         method: 'POST',
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
         body: 'product_id=' + productId
       });
       const data = await res.json();
@@ -206,5 +235,6 @@ mysqli_close($conn);
     }, 2500);
   }
 </script>
+<?php require_once __DIR__ . '/../config/tab_guard.php'; ?>
 </body>
 </html>

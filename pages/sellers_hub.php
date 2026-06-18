@@ -542,5 +542,6 @@ mysqli_close($conn);
     }
   });
 </script>
+<?php require_once __DIR__ . '/../config/tab_guard.php'; ?>
 </body>
 </html>

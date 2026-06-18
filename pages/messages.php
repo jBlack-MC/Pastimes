@@ -45,33 +45,19 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["message"])) {
 
 /* Fetch conversation: all messages between this user and admin */
 $messages = [];
-$mResult = mysqli_query($conn,
+$mStmt = mysqli_prepare($conn,
     "SELECT message_id, sender_id, sender_name, message, is_read, created_at
      FROM tblmessage
      WHERE (sender_id=? AND receiver_id=-1)
         OR (sender_id=-1 AND receiver_id=?)
      ORDER BY created_at ASC"
 );
-/* Inline binding since the query uses the user_id twice */
-if ($mResult === false) {
-    /* Table may not exist yet — retry after create */
-    $messages = [];
-} else {
-    /* Rebuild query with prepared statement for safety */
-    $mStmt = mysqli_prepare($conn,
-        "SELECT message_id, sender_id, sender_name, message, is_read, created_at
-         FROM tblmessage
-         WHERE (sender_id=? AND receiver_id=-1)
-            OR (sender_id=-1 AND receiver_id=?)
-         ORDER BY created_at ASC"
-    );
-    if ($mStmt) {
-        mysqli_stmt_bind_param($mStmt, "ii", $user_id, $user_id);
-        mysqli_stmt_execute($mStmt);
-        $mRes = mysqli_stmt_get_result($mStmt);
-        while ($row = mysqli_fetch_assoc($mRes)) $messages[] = $row;
-        mysqli_stmt_close($mStmt);
-    }
+if ($mStmt) {
+    mysqli_stmt_bind_param($mStmt, "ii", $user_id, $user_id);
+    mysqli_stmt_execute($mStmt);
+    $mRes = mysqli_stmt_get_result($mStmt);
+    while ($row = mysqli_fetch_assoc($mRes)) $messages[] = $row;
+    mysqli_stmt_close($mStmt);
 }
 
 /* Mark admin replies as read */
@@ -140,6 +126,7 @@ mysqli_close($conn);
       <a href="checkout.php"><i class="fas fa-shopping-cart"></i> Cart</a>
       <a href="my_orders.php">My Orders</a>
       <a href="messages.php" class="active"><i class="fas fa-envelope"></i> Messages</a>
+      <a href="report.php"><i class="fas fa-flag"></i> Report</a>
       <a href="sellers_hub.php">Seller Hub</a>
       <?php if ($role === "admin"): ?><a href="admin.php">Admin</a><?php endif; ?>
       <a href="logout.php">Logout</a>
@@ -186,5 +173,6 @@ mysqli_close($conn);
   const thread = document.getElementById('msgThread');
   if (thread) thread.scrollTop = thread.scrollHeight;
 </script>
+<?php require_once __DIR__ . '/../config/tab_guard.php'; ?>
 </body>
 </html>

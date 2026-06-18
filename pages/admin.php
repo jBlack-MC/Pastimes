@@ -16,6 +16,21 @@ require_once __DIR__ . "/../config/DBConn.php";
 $activeTab = $_GET["tab"] ?? "users";
 if (!in_array($activeTab, ["users", "products", "sellers"], true)) $activeTab = "users";
 
+/* Ensure the reports table exists so the count query never fails */
+mysqli_query($conn, "CREATE TABLE IF NOT EXISTS tblreport (
+    report_id   INT AUTO_INCREMENT PRIMARY KEY,
+    user_id     INT NOT NULL,
+    user_name   VARCHAR(100) NOT NULL,
+    order_id    INT DEFAULT NULL,
+    category    VARCHAR(50) NOT NULL DEFAULT 'general',
+    subject     VARCHAR(200) NOT NULL,
+    description TEXT NOT NULL,
+    status      VARCHAR(20) DEFAULT 'open',
+    admin_reply TEXT DEFAULT NULL,
+    replied_at  TIMESTAMP NULL DEFAULT NULL,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 $flash = "";
 
 /* ── USER CRUD (add / edit / delete / verify) ── */
@@ -279,6 +294,9 @@ $pendingSellers = count(array_filter($sellers, fn($s) => $s["approval_status"] =
 $totalOrdersQ = mysqli_query($conn, "SELECT COUNT(*) AS c FROM tblorder");
 $totalOrders = $totalOrdersQ ? (int)(mysqli_fetch_assoc($totalOrdersQ)["c"] ?? 0) : 0;
 
+$openReportsQ = mysqli_query($conn, "SELECT COUNT(*) AS c FROM tblreport WHERE status='open'");
+$openReports  = $openReportsQ ? (int)(mysqli_fetch_assoc($openReportsQ)["c"] ?? 0) : 0;
+
 /* Flash message map – maps URL ?msg= param to human-readable text */
 $msgMap = [
     "user_added"      => "User added successfully.",
@@ -379,9 +397,9 @@ mysqli_close($conn);
       <div><span class="logo-text">Pastimes</span><span class="badge">Admin Console</span></div>
     </a>
     <nav class="nav">
-      <a href="shop.php">Shop</a>
       <a href="admin_orders.php">Orders</a>
       <a href="admin_messages.php">Messages</a>
+      <a href="admin_reports.php">Reports <?php if ($openReports > 0): ?><span style="background:#c26743;border-radius:99px;padding:1px 7px;font-size:.68rem;margin-left:4px"><?php echo $openReports; ?></span><?php endif; ?></a>
       <a class="secondary" href="logout.php">Logout</a>
     </nav>
   </header>
@@ -397,6 +415,10 @@ mysqli_close($conn);
     <article class="stat"><div class="stat-label">Products</div><div class="stat-value"><?php echo $totalProducts; ?></div></article>
     <article class="stat"><div class="stat-label">Pending sellers</div><div class="stat-value"><?php echo $pendingSellers; ?></div></article>
     <article class="stat"><div class="stat-label">Orders</div><div class="stat-value"><?php echo $totalOrders; ?></div></article>
+    <article class="stat" style="border-left:3px solid <?php echo $openReports > 0 ? '#c26743' : '#e8e6e1'; ?>">
+      <div class="stat-label">Open Reports</div>
+      <div class="stat-value" style="color:<?php echo $openReports > 0 ? '#c26743' : 'var(--green)'; ?>"><?php echo $openReports; ?></div>
+    </article>
   </section>
 
   <!-- Tab navigation -->
@@ -406,6 +428,9 @@ mysqli_close($conn);
     <a class="tab-link <?php echo $activeTab==='sellers'?'active':''; ?>" href="admin.php?tab=sellers"><i class="fas fa-store"></i> Sellers</a>
     <a class="tab-link" href="admin_orders.php"><i class="fas fa-receipt"></i> Orders</a>
     <a class="tab-link" href="admin_messages.php"><i class="fas fa-envelope"></i> Messages</a>
+    <a class="tab-link" href="admin_reports.php" style="<?php echo $openReports > 0 ? 'border-color:#c26743;color:#c26743' : ''; ?>">
+      <i class="fas fa-flag"></i> Reports<?php if ($openReports > 0): ?> <span style="background:#c26743;color:#fff;border-radius:99px;padding:1px 7px;font-size:.7rem"><?php echo $openReports; ?></span><?php endif; ?>
+    </a>
   </nav>
 
   <!-- ═══════════ USERS TAB ═══════════ -->

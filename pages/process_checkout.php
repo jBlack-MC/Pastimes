@@ -19,6 +19,10 @@ if (!isset($_SESSION["user_id"])) {
     header("Location: login.php");
     exit;
 }
+if (($_SESSION["role"] ?? "") === "admin") {
+    header("Location: admin.php");
+    exit;
+}
 
 require_once __DIR__ . "/../config/DBConn.php";
 
@@ -195,8 +199,8 @@ if (!$success && $_SERVER["REQUEST_METHOD"] === "POST") {
     }
 }
 
-// If not POST and no success, fetch cart for display
-if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
+// If not success, fetch cart for display
+if (!$success) {
     $cartStmt = mysqli_prepare($conn, 
         "SELECT c.product_id, SUM(c.quantity) AS quantity, p.name, p.price 
          FROM tblcart c 
@@ -729,6 +733,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
     <?php endif; ?>
 
   </div>
+<?php require_once __DIR__ . '/../config/tab_guard.php'; ?>
 </body>
 </html>
 <?php mysqli_close($conn); ?>

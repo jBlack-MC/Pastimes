@@ -9,6 +9,10 @@ if (!isset($_SESSION["user_id"])) {
   header("Location: login.php");
   exit;
 }
+if (($_SESSION["role"] ?? "") === "admin") {
+  header("Location: admin.php");
+  exit;
+}
 
 /* Include database connection – $conn is made available by DBConn.php */
 require_once __DIR__ . "/../config/DBConn.php";
@@ -603,6 +607,7 @@ if ($cartStmt) {
       }, 2000);
     }
   </script>
+<?php require_once __DIR__ . '/../config/tab_guard.php'; ?>
 </body>
 </html>
 <?php mysqli_close($conn); ?>

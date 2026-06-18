@@ -26,6 +26,12 @@ if (isset($_GET["verified"]) && $_GET["verified"] === "1") {
     $messageType = "success";
 }
 
+/* Shown when the tab guard detects a different user logged in on another tab */
+if (isset($_GET["sc"]) && $_GET["sc"] === "1" && $message === "") {
+    $message = "Another account signed in on a different tab. Please sign in again.";
+    $messageType = "error";
+}
+
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     /* Sanitise form input before any DB interaction */
     $username = trim($_POST["username"] ?? "");
@@ -438,5 +444,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <span><i class="fas fa-store"></i> Trusted marketplace</span>
   </div>
 </div>
+<script>
+/* Clear the tab guard on the login page so re-login sets a fresh tab identity */
+sessionStorage.removeItem('pt_tab_uid');
+</script>
 </body>
 </html>
