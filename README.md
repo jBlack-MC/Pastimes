@@ -17,6 +17,10 @@
 
 ---
 
+## Demo
+
+[▶️ Watch Demo](./preview.mp4)
+
 ## Tech Stack
 
 | Layer | Technology |
