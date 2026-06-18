@@ -593,9 +593,13 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
       <p style="color: var(--muted); margin-bottom: 1rem;">Thank you for your purchase, <?php echo htmlspecialchars($name); ?>!</p>
       
       <div class="order-number">
-        Order Number: <?php echo htmlspecialchars($order_number); ?>
+        Order #: <?php echo htmlspecialchars($order_number); ?>
       </div>
-      
+
+      <div class="session-id">
+        Session ID: <?php echo htmlspecialchars(session_id()); ?>
+      </div>
+
       <div class="alert alert-success">
         <i class="fas fa-info-circle"></i>
         <div>
@@ -617,6 +621,9 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST" || !$success) {
       <div class="button-group">
         <a href="shop.php" class="btn btn-primary" style="justify-content: center;">
           <i class="fas fa-shopping-bag"></i> Continue Shopping
+        </a>
+        <a href="login.php" class="btn btn-secondary" style="justify-content: center;">
+          <i class="fas fa-sign-in-alt"></i> Return to Login
         </a>
       </div>
     </div>

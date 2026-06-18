@@ -1,200 +1,182 @@
-# Pastimes Threads - Clothing Store Web Application
+# Pastimes Threads — Clothing Marketplace
 
-**Pastimes Threads** is a modern, elegant e-commerce web application built for a clothing marketplace. It features a clean, timeless design with a focus on user experience for browsing, shopping, and managing products.
-
-![Pastimes Threads](https://via.placeholder.com/800x400/2a3a3a/fff?text=Pastimes+Threads)
-
-## Features
-
-| Feature | Description |
-| --- | --- |
-| User registration & login | Separate flows for buyers and sellers; admin via `tbladmin` |
-| Email-based verification | Admin approves new user accounts before first login |
-| Shopping cart | Add / update / remove items via AJAX; persisted in `tblcart` |
-| Checkout & orders | Creates `tblorder` + `tblorderline`, decrements stock |
-| Image upload | Sellers and admin upload product photos stored in `uploads/` |
-| Seller dashboard | Add, edit, delete products; view lifetime revenue and order stats |
-| Admin – Users | Verify or filter pending/active accounts |
-| Admin – Products | Full CRUD over the product catalogue with image support |
-| Admin – Sellers | Approve or reject seller applications |
-| Admin – Orders | View all orders; update status (Pending → Shipped → Delivered) |
-| Messaging | Buyers contact admin; admin replies in a conversation view |
-| Order history | Users view past orders with line-item breakdown |
-| Responsive UI | Works on desktop and mobile |
+**Pastimes Threads** is a PHP 8 / MySQL e-commerce web application built for the **WEDE6021 Part 2 POE** assessment.
 
 ---
 
-## Database
+## About the Application
 
-**Database name:** `ClothingStore`
+**Type of eShop:** A second-hand and artisan clothing marketplace where buyers can browse and purchase garments, and sellers can list their own items for sale.
 
-| Table | Purpose |
-| --- | --- |
-| `tblUser` | Registered buyers/sellers; `status` = `pending` / `active` |
-| `tbladmin` | Admin credentials |
-| `tblclothes` | Product catalogue (name, price, stock, image, seller) |
-| `tblseller` | Seller profiles and `approval_status` |
-| `tblcart` | Active shopping cart items per user |
-| `tblorder` | Order headers (total, address, status) |
-| `tblorderline` | Order line items (product, quantity, unit price) |
-| `tblmessage` | User ↔ admin messages (auto-created on first visit) |
+**Goals:**
+- Provide a platform for discovering slow-fashion, pre-loved, and handcrafted clothing.
+- Enable sellers to list and manage their own garments with photos and descriptions.
+- Give buyers a smooth shopping-cart and checkout experience with order history.
+- Provide administrators with full oversight of users, products, sellers, and orders.
 
 ---
 
-## Installation
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Back-end | PHP 8.2 (procedural) |
+| Database | MySQL / MariaDB 10.4 |
+| Front-end | HTML5, CSS3, vanilla JavaScript |
+| Icons | Font Awesome 6 |
+| Server | Apache (XAMPP recommended) |
+
+---
+
+## Setup Instructions
 
 ### Requirements
-
-- PHP 8.0+
-- MySQL / MariaDB
-- Apache with `mod_rewrite` (XAMPP or WAMP recommended)
+- XAMPP (Apache + PHP 8+ + MySQL)
+- A modern web browser
 
 ### Steps
 
-1. **Copy the project** into your web root:
-
-   ```text
+1. Copy the project folder into your web root:
+   ```
    C:\xampp\htdocs\Pastimes\
    ```
 
-2. **Create the database** in phpMyAdmin:
+2. Open **phpMyAdmin**, create a database named `clothingstore`, then import `clothingstore.sql` (project root) to create all tables and seed sample data.
 
-   ```sql
-   CREATE DATABASE ClothingStore;
+3. Confirm connection settings in `config/DBConn.php`:
+   ```
+   host: 127.0.0.1 | db: clothingstore | user: root | pass: (blank)
    ```
 
-3. **Import the schema and seed data** by visiting:
-
-   ```text
-   http://localhost/Pastimes/scripts/createTable.php
-   http://localhost/Pastimes/scripts/setup_messages.php
+4. Start Apache and MySQL in the XAMPP Control Panel, then open:
    ```
-
-4. **Verify connection settings** in `config/DBConn.php` (or set environment variables):
-
-   ```text
-   DB_HOST=localhost
-   DB_USERNAME=root
-   DB_PASSWORD=
-   DB_DATABASE=ClothingStore
-   ```
-
-5. **Open the app:**
-
-   ```text
    http://localhost/Pastimes/
    ```
 
-### Default Admin Login
+---
 
-| Username | Password |
-| -------- | -------- |
-| `admin123` | `admin123` |
+## Test Accounts
+
+| Role | Username | Password | Notes |
+|---|---|---|---|
+| Customer | john123 | 123456 | Active |
+| Customer | jane123 | 123456 | Active |
+| Customer | mike123 | 123456 | Active |
+| Customer | sara123 | 123456 | Active |
+| Customer | thabo123 | 123456 | Active |
+| Admin | admin123 | admin123 | Full admin access |
+
+> New registrations require **admin approval** before login is permitted.
 
 ---
 
-## Folder Structure
+## Application Structure
 
-```text
+```
 Pastimes/
+├── index.php                   # Startup / landing page
+├── clothingstore.sql           # Database schema + seed data
+├── README.md                   # This file
 ├── config/
-│   └── DBConn.php              Database connection
+│   └── DBConn.php              # Database connection
 ├── data/
-│   └── userData.txt            Seed user data
+│   └── userData.txt            # Sample user records
 ├── pages/
-│   ├── login.php               User & admin login
-│   ├── register.php            Buyer registration
-│   ├── shop.php                Product listing (database-driven)
-│   ├── product.php             Single product detail page
-│   ├── checkout.php            Shopping cart
-│   ├── process_checkout.php    Order creation and confirmation
-│   ├── my_orders.php           User order history
-│   ├── sellers_hub.php         Seller product management + image upload
-│   ├── seller_register.php     Seller application form
-│   ├── admin.php               Admin: users / products / sellers
-│   ├── admin_orders.php        Admin: order management
-│   ├── messages.php            User inbox (buyer ↔ admin)
-│   ├── admin_messages.php      Admin messaging dashboard
-│   ├── cart_add.php            AJAX: add item to cart
-│   ├── cart_remove.php         AJAX: remove item from cart
-│   ├── cart_update.php         AJAX: update cart quantity
-│   └── logout.php              Session destroy
-├── scripts/
-│   └── createTable.php
-│
-├── index.php
-├── readmefile.txt
-└── clothingstore.sql
+│   ├── login.php               # Login (ProcessInput + Login functions)
+│   ├── register.php            # Registration → pending approval
+│   ├── shop.php                # Product grid with AddToCart + ShowCart
+│   ├── product.php             # Single product detail page
+│   ├── checkout.php            # Shopping cart (ShowCart / RemoveItem / qty update)
+│   ├── process_checkout.php    # Checkout form, order creation, confirmation
+│   ├── cart_add.php            # AJAX: AddItem (increases qty if duplicate)
+│   ├── cart_remove.php         # AJAX: RemoveItem
+│   ├── cart_update.php         # AJAX: update quantity
+│   ├── my_orders.php           # Order history + grand total of all purchases
+│   ├── sellers_hub.php         # Seller dashboard (list/manage products)
+│   ├── seller_register.php     # Seller application form
+│   ├── admin.php               # Admin: users + products full CRUD
+│   ├── admin_orders.php        # Admin: order management
+│   ├── messages.php            # User inbox (buyer ↔ admin)
+│   ├── admin_messages.php      # Admin messaging dashboard
+│   └── logout.php              # EmptyCart session + destroy → login
+└── uploads/                    # Product image uploads
+```
 
-### Setup Instructions
+---
 
-1. Install Requirements
-Install XAMPP or WAMP
-Start Apache and MySQL
+## Key Features
 
-3. Move Project
+### Shopping Cart Functions
 
-Copy the project folder to:
+| Function | File | Behaviour |
+|---|---|---|
+| **Login** | `login.php` | Authenticates user; blocks `pending` accounts |
+| **ProcessInput** | `login.php`, `register.php` | Validates and sanitises all form fields |
+| **AddItem** | `cart_add.php` | AJAX; ON DUPLICATE KEY UPDATE increases qty |
+| **RemoveItem** | `cart_remove.php` | AJAX; removes one product line from cart |
+| **Checkout** | `process_checkout.php` | Creates order, writes `tblorderline`, decrements stock |
+| **EmptyCart** | `process_checkout.php` | Deletes all cart rows for user after successful order |
 
-C:\xampp\htdocs\
+Cart is persisted in `tblcart` (database), so items survive page navigation and browser back.
 
-3. Create Database
+### Checkout & Order Confirmation
 
-Open phpMyAdmin
-Create database:
-ClothingStore
-4. Import Database
+After a successful order the confirmation page displays:
+- **Order Number** — formatted as `ORD-00000001`
+- **Session ID** — the PHP `session_id()` for reference
+- Links to **My Orders** and **Return to Login**
 
-Click Import
-Upload:
-clothingstore.sql
+### Order History (`My Orders`)
 
-5. Run Application
+- Lists every past order with date, status badge, and expandable item breakdown.
+- Shows the **grand total of all purchases** (sum across all orders) at the bottom.
 
-Open browser:
+### Admin Panel
 
-http://localhost/Pastimes/pages/login.php
- 
- ### Login System
-Passwords are stored using hashing
-Users must be verified by admin before login
-Invalid login shows error message
-Sticky form retains input values
-### Data Files
-userData.txt → contains sample user records
-Used to preload data into database
+- **Users** — add, edit, delete, verify (activate) pending accounts.
+- **Products** — add, edit, delete listings with image upload.
+- Protected by session role check (`role = 'admin'`).
 
-### Demonstration
+### Seller Hub
 
-A demonstration video is included showing:
+- Sellers register their brand and list garments with photos.
+- View incoming orders and lifetime revenue for their listings.
 
-User registration
-Login attempt (before verification)
-Admin verification
-Successful login
-Database interaction
+---
 
-### Contributors
-Clarity Masuku
+## Database Tables
 
-Student Number: [10438928]
+| Table | Purpose |
+|---|---|
+| `tbluser` | Registered customers (`status`: pending / active, `role`: user / admin) |
+| `tbladmin` | Admin credentials (separate from tbluser) |
+| `tblclothes` | Product catalogue (name, price, stock, image, seller) |
+| `tblseller` | Seller profiles and approval status |
+| `tblcart` | Active cart items per user |
+| `tblorder` | Order headers (total, address, status) |
+| `tblorderline` | Order line items (product, quantity, unit price) |
+| `tblmessage` | User ↔ admin messages |
 
-Sibusiso Mabena
+---
 
-Student Number: [ST10462532]
+## Security
 
-Unathi Mgandela
+- Passwords hashed with **bcrypt** (`password_hash` / `password_verify`).
+- All queries use **prepared statements** — no raw string interpolation.
+- File uploads validate MIME type and extension.
+- Session regenerated on login to prevent session fixation.
+- **PRG pattern** on checkout prevents duplicate orders on browser refresh.
 
-Student Number: [ST10447100]
+---
 
-### Module Information
-Module Name: Web Development part 2 (Intermediate)
-Module Code: WEDE6021/w
-### Notes
-This project is for academic purposes only
-All data used is fictitious
-Ensure database connection settings match your local environment
-### Version Control
+## Contributors
 
-This project is managed using Git and hosted on GitHub:
-👉 https://github.com/jBlack-MC/Pastimes
+| Name | Student Number |
+|---|---|
+| Clarity Masuku | 10438928 |
+| Sibusiso Mabena | ST10462532 |
+| Unathi Mgandela | ST10447100 |
+
+**Module:** Web Development (Intermediate) — WEDE6021/w
+
+> This project is for academic purposes only. All data used is fictitious.

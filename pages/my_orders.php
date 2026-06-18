@@ -171,6 +171,14 @@ mysqli_close($conn);
       </div>
     </div>
     <?php endforeach; ?>
+
+    <?php
+      $grandTotal = array_sum(array_column($orders, "total_price"));
+    ?>
+    <div style="background:var(--white);border:1px solid var(--border);border-radius:var(--lg);padding:1rem 1.4rem;box-shadow:var(--sm);display:flex;justify-content:space-between;align-items:center;font-size:1rem;">
+      <span style="font-weight:700;color:var(--text)"><i class="fas fa-receipt" style="margin-right:6px;color:var(--green)"></i>Total Spent (all orders)</span>
+      <strong style="font-size:1.25rem;color:var(--rust)">$<?php echo number_format((float)$grandTotal, 2); ?></strong>
+    </div>
   <?php endif; ?>
 </div>
 
