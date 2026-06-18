@@ -23,6 +23,7 @@ if ($product_id > 0) {
          FROM tblclothes p
          LEFT JOIN tblseller s ON p.seller_id = s.seller_id
          WHERE p.product_id = ?
+           AND p.is_deleted = 0
          LIMIT 1"
     );
     if ($pStmt) {
@@ -42,7 +43,7 @@ if (!$product) {
 /* Fetch up to 4 related products (other items, newest first) */
 $related = [];
 $rStmt = mysqli_prepare($conn,
-    "SELECT product_id, name, price, image FROM tblclothes WHERE product_id <> ? AND stock > 0 ORDER BY created_at DESC LIMIT 4"
+    "SELECT product_id, name, price, image FROM tblclothes WHERE product_id <> ? AND stock > 0 AND is_deleted = 0 ORDER BY created_at DESC LIMIT 4"
 );
 if ($rStmt) {
     mysqli_stmt_bind_param($rStmt, "i", $product_id);
@@ -95,18 +96,9 @@ if ($rvStmt) {
     }
 }
 
-$eligStmt = mysqli_prepare($conn,
-    "SELECT 1 FROM tblorder o
-     JOIN tblorderline ol ON o.order_id = ol.order_id
-     WHERE o.user_id = ? AND ol.product_id = ? AND o.status = 'delivered'
-     LIMIT 1"
-);
-if ($eligStmt) {
-    mysqli_stmt_bind_param($eligStmt, "ii", $user_id, $product_id);
-    mysqli_stmt_execute($eligStmt);
-    $canReview = mysqli_num_rows(mysqli_stmt_get_result($eligStmt)) > 0;
-    mysqli_stmt_close($eligStmt);
-}
+/* Any signed-in shopper may leave one review per product (purchase not required).
+   Admins browse but do not review. */
+$canReview = ($role !== "admin");
 if ($canReview) {
     $rvChk = mysqli_prepare($conn,
         "SELECT 1 FROM tblreview WHERE product_id = ? AND user_id = ? LIMIT 1"
@@ -342,12 +334,18 @@ $hasImg = !empty($product["image"]) && $product["image"] !== "placeholder-clothi
     <?php if ($reviewFlash === "ok"): ?>
       <div class="review-flash ok"><i class="fas fa-check-circle"></i> Review submitted — thank you!</div>
     <?php elseif ($reviewFlash === "err"): ?>
-      <div class="review-flash err"><i class="fas fa-exclamation-circle"></i> You must purchase and receive this item before reviewing.</div>
+      <div class="review-flash err"><i class="fas fa-exclamation-circle"></i> Sorry, your review could not be submitted. Please try again.</div>
     <?php endif; ?>
 
-    <?php if ($canReview && !$hasReviewed): ?>
+    <?php if ($canReview): ?>
     <div class="review-form-card">
-      <h3><i class="fas fa-pen" style="color:var(--forest)"></i> Write a Review</h3>
+      <h3>
+        <i class="fas fa-pen" style="color:var(--forest)"></i>
+        <?php echo $hasReviewed ? 'Update Your Review' : 'Write a Review'; ?>
+      </h3>
+      <?php if ($hasReviewed): ?>
+        <p class="review-note" style="margin-bottom:1rem"><i class="fas fa-info-circle"></i> You've already reviewed this item — submitting again will update your review.</p>
+      <?php endif; ?>
       <form method="POST" action="submit_review.php">
         <input type="hidden" name="product_id" value="<?php echo $product_id; ?>">
         <!-- Star picker: DOM 5→1, flex row-reverse makes it display 1→5 -->
@@ -359,14 +357,12 @@ $hasImg = !empty($product["image"]) && $product["image"] !== "placeholder-clothi
         </div>
         <textarea name="comment" rows="3" placeholder="Share your thoughts about fit, quality, or anything else…"></textarea>
         <button type="submit" class="btn-add" style="width:auto;padding:11px 26px;font-size:.9rem;margin:0">
-          <i class="fas fa-paper-plane"></i> Submit Review
+          <i class="fas fa-paper-plane"></i> <?php echo $hasReviewed ? 'Update Review' : 'Submit Review'; ?>
         </button>
       </form>
     </div>
-    <?php elseif ($canReview && $hasReviewed): ?>
-      <p class="review-note"><i class="fas fa-check-circle" style="color:var(--forest)"></i> You have already reviewed this product.</p>
     <?php else: ?>
-      <p class="review-note"><i class="fas fa-shopping-bag"></i> Purchase and receive this item to leave a review.</p>
+      <p class="review-note"><i class="fas fa-info-circle"></i> Sign in as a shopper to leave a review.</p>
     <?php endif; ?>
 
     <?php if (!$reviews): ?>

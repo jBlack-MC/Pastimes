@@ -93,21 +93,44 @@ if (isset($_GET["delete"]) && is_numeric($_GET["delete"])) {
         $chkRow = mysqli_fetch_assoc(mysqli_stmt_get_result($chk));
         mysqli_stmt_close($chk);
         if ($chkRow) {
-            $delStmt = mysqli_prepare($conn, "DELETE FROM tblclothes WHERE product_id = ?");
-            if ($delStmt) {
-                mysqli_stmt_bind_param($delStmt, "i", $del_id);
-                if (mysqli_stmt_execute($delStmt)) {
-                    /* Remove the uploaded image file if it is not the placeholder */
-                    $img = $chkRow["image"] ?? "";
-                    if ($img && $img !== "placeholder-clothing.jpg") {
-                        $imgPath = __DIR__ . "/../uploads/" . $img;
-                        if (file_exists($imgPath)) unlink($imgPath);
-                    }
-                    $success_message = "Product deleted successfully.";
-                } else {
-                    $error_message = "Error deleting product.";
+            /* If the product appears in past orders it cannot be physically
+               deleted (FK constraint on tblorderline). Soft-delete those to keep
+               order history intact; permanently delete the rest. */
+            $referenced = false;
+            $rc = mysqli_prepare($conn, "SELECT COUNT(*) AS n FROM tblorderline WHERE product_id = ?");
+            if ($rc) {
+                mysqli_stmt_bind_param($rc, "i", $del_id);
+                mysqli_stmt_execute($rc);
+                $referenced = (int)(mysqli_fetch_assoc(mysqli_stmt_get_result($rc))["n"] ?? 0) > 0;
+                mysqli_stmt_close($rc);
+            }
+
+            if ($referenced) {
+                /* Hide from shop and zero stock, but keep the row + image for order history */
+                $arc = mysqli_prepare($conn, "UPDATE tblclothes SET is_deleted=1, stock=0 WHERE product_id = ?");
+                if ($arc) {
+                    mysqli_stmt_bind_param($arc, "i", $del_id);
+                    mysqli_stmt_execute($arc);
+                    mysqli_stmt_close($arc);
                 }
-                mysqli_stmt_close($delStmt);
+                $success_message = "Product removed from the shop (kept for existing order history).";
+            } else {
+                $delStmt = mysqli_prepare($conn, "DELETE FROM tblclothes WHERE product_id = ?");
+                if ($delStmt) {
+                    mysqli_stmt_bind_param($delStmt, "i", $del_id);
+                    if (mysqli_stmt_execute($delStmt)) {
+                        /* Remove the uploaded image file if it is not the placeholder */
+                        $img = $chkRow["image"] ?? "";
+                        if ($img && $img !== "placeholder-clothing.jpg") {
+                            $imgPath = __DIR__ . "/../uploads/" . $img;
+                            if (file_exists($imgPath)) unlink($imgPath);
+                        }
+                        $success_message = "Product deleted successfully.";
+                    } else {
+                        $error_message = "Error deleting product.";
+                    }
+                    mysqli_stmt_close($delStmt);
+                }
             }
         }
     }
@@ -251,6 +274,7 @@ if ($seller_id) {
         "SELECT product_id, name, brand, description, price, stock, image, created_at
          FROM tblclothes
          WHERE seller_id = ?
+           AND is_deleted = 0
          ORDER BY created_at DESC"
     );
     if ($pStmt) {

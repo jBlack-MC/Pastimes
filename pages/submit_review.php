@@ -28,22 +28,20 @@ mysqli_query($conn, "CREATE TABLE IF NOT EXISTS tblreview (
     UNIQUE KEY one_per_user (product_id, user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-/* Must have a delivered order containing this product */
-$elig = mysqli_prepare($conn,
-    "SELECT 1 FROM tblorder o
-     JOIN tblorderline ol ON o.order_id = ol.order_id
-     WHERE o.user_id = ? AND ol.product_id = ? AND o.status = 'delivered'
-     LIMIT 1"
+/* Any signed-in shopper may review – a purchase is not required.
+   Just confirm the product exists and is still live before saving. */
+$prodOk = false;
+$pchk = mysqli_prepare($conn,
+    "SELECT 1 FROM tblclothes WHERE product_id = ? AND is_deleted = 0 LIMIT 1"
 );
-$eligible = false;
-if ($elig) {
-    mysqli_stmt_bind_param($elig, "ii", $user_id, $product_id);
-    mysqli_stmt_execute($elig);
-    $eligible = mysqli_num_rows(mysqli_stmt_get_result($elig)) > 0;
-    mysqli_stmt_close($elig);
+if ($pchk) {
+    mysqli_stmt_bind_param($pchk, "i", $product_id);
+    mysqli_stmt_execute($pchk);
+    $prodOk = mysqli_num_rows(mysqli_stmt_get_result($pchk)) > 0;
+    mysqli_stmt_close($pchk);
 }
 
-if (!$eligible) {
+if (!$prodOk) {
     header("Location: product.php?id={$product_id}&err=not_eligible");
     exit;
 }

@@ -32,6 +32,7 @@ $result   = mysqli_query($conn,
      FROM   tblclothes c
      LEFT JOIN tblseller s ON c.seller_id = s.seller_id
      WHERE  c.stock > 0
+       AND  c.is_deleted = 0
        AND  (c.seller_id IS NULL OR s.approval_status = 'approved')
      ORDER  BY c.created_at DESC"
 );

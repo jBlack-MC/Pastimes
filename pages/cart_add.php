@@ -71,7 +71,7 @@ function getCartCount($conn, $user_id) {
 }
 
 // Check if product exists and has stock
-$productStmt = mysqli_prepare($conn, "SELECT product_id, name, price, stock FROM tblclothes WHERE product_id = ? LIMIT 1");
+$productStmt = mysqli_prepare($conn, "SELECT product_id, name, price, stock FROM tblclothes WHERE product_id = ? AND is_deleted = 0 LIMIT 1");
 if (!$productStmt) {
     http_response_code(500);
     echo json_encode([

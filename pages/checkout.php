@@ -214,6 +214,32 @@ if ($cartStmt) {
       margin-bottom: 0.3rem;
     }
 
+    .item-name a {
+      color: var(--text);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+
+    .item-name a:hover {
+      color: var(--green);
+      text-decoration: underline;
+    }
+
+    .item-view {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 0.45rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--green);
+      text-decoration: none;
+    }
+
+    .item-view:hover {
+      text-decoration: underline;
+    }
+
     .item-price {
       font-size: 0.9rem;
       color: var(--muted);
@@ -452,9 +478,14 @@ if ($cartStmt) {
         ?>
         <div class="cart-item">
           <div class="item-info">
-            <div class="item-name"><?php echo htmlspecialchars($item["name"]); ?></div>
+            <div class="item-name">
+              <a href="product.php?id=<?php echo (int)$item["product_id"]; ?>"><?php echo htmlspecialchars($item["name"]); ?></a>
+            </div>
             <div class="item-price">$<?php echo number_format($item["price"], 2); ?> each</div>
             <div class="item-stock">Stock: <?php echo (int)$item["stock"]; ?></div>
+            <a class="item-view" href="product.php?id=<?php echo (int)$item["product_id"]; ?>">
+              <i class="fas fa-eye"></i> View product
+            </a>
           </div>
 
           <div class="item-controls">

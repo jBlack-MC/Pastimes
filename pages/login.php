@@ -59,7 +59,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             mysqli_stmt_close($userStmt);
 
             if ($user) {
-                if (($user["status"] ?? "") !== "active") {
+                $accountStatus = $user["status"] ?? "";
+                if ($accountStatus === "frozen") {
+                    /* Admin has suspended this account */
+                    $message = "Your account has been suspended. Please contact support for assistance.";
+                    $messageType = "error";
+                } elseif ($accountStatus !== "active") {
                     /* User registered but admin has not yet verified the account */
                     $message = "Your account is pending admin approval. Please wait for verification before logging in.";
                     $messageType = "error";

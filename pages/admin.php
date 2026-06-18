@@ -43,7 +43,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["user_action"])) {
         $uemail = trim($_POST["uemail"] ?? "");
         $uuser  = trim($_POST["uuser"]  ?? "");
         $upass  = trim($_POST["upass"]  ?? "");
-        $ustatus = in_array($_POST["ustatus"] ?? "", ["active","pending"], true) ? $_POST["ustatus"] : "active";
+        $ustatus = in_array($_POST["ustatus"] ?? "", ["active","pending","frozen"], true) ? $_POST["ustatus"] : "active";
         /* Validate email format and minimum password length before inserting */
         if ($uname && filter_var($uemail, FILTER_VALIDATE_EMAIL) && $uuser && strlen($upass) >= 4) {
             $hashed = password_hash($upass, PASSWORD_DEFAULT);
@@ -65,7 +65,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["user_action"])) {
         $uname   = trim($_POST["uname"]   ?? "");
         $uemail  = trim($_POST["uemail"]  ?? "");
         $uuser   = trim($_POST["uuser"]   ?? "");
-        $ustatus = in_array($_POST["ustatus"] ?? "", ["active","pending"], true) ? $_POST["ustatus"] : "active";
+        $ustatus = in_array($_POST["ustatus"] ?? "", ["active","pending","frozen"], true) ? $_POST["ustatus"] : "active";
         /* Validate email format before updating */
         if ($uid > 0 && $uname && filter_var($uemail, FILTER_VALIDATE_EMAIL) && $uuser) {
             $upass = trim($_POST["upass"] ?? "");
@@ -114,6 +114,28 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["user_action"])) {
             header("Location: admin.php?tab=users&msg=user_has_orders"); exit;
         }
         header("Location: admin.php?tab=users&msg=user_deleted"); exit;
+    }
+
+    if ($ua === "freeze_user") {
+        /* Suspend an account – frozen users keep their data and order history
+           but can no longer log in. The real-world alternative to deletion for
+           users who have existing orders. */
+        $uid = (int)($_POST["user_id"] ?? 0);
+        if ($uid > 0) {
+            $s = mysqli_prepare($conn, "UPDATE tblUser SET status='frozen' WHERE user_id=?");
+            if ($s) { mysqli_stmt_bind_param($s,"i",$uid); mysqli_stmt_execute($s); mysqli_stmt_close($s); }
+        }
+        header("Location: admin.php?tab=users&msg=user_frozen"); exit;
+    }
+
+    if ($ua === "unfreeze_user") {
+        /* Reactivate a frozen account so the user can log in again */
+        $uid = (int)($_POST["user_id"] ?? 0);
+        if ($uid > 0) {
+            $s = mysqli_prepare($conn, "UPDATE tblUser SET status='active' WHERE user_id=?");
+            if ($s) { mysqli_stmt_bind_param($s,"i",$uid); mysqli_stmt_execute($s); mysqli_stmt_close($s); }
+        }
+        header("Location: admin.php?tab=users&msg=user_unfrozen"); exit;
     }
 }
 
@@ -210,7 +232,26 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["product_action"])) {
     if ($pa === "delete_product") {
         $pid = (int)($_POST["product_id"] ?? 0);
         if ($pid > 0) {
-            /* Retrieve image filename before deleting so we can remove the file */
+            /* A product that appears in past orders cannot be physically deleted
+               (FK constraint on tblorderline). Soft-delete those to preserve
+               order history; permanently delete the rest. */
+            $referenced = false;
+            $chk = mysqli_prepare($conn, "SELECT COUNT(*) AS n FROM tblorderline WHERE product_id=?");
+            if ($chk) {
+                mysqli_stmt_bind_param($chk, "i", $pid);
+                mysqli_stmt_execute($chk);
+                $referenced = (int)(mysqli_fetch_assoc(mysqli_stmt_get_result($chk))["n"] ?? 0) > 0;
+                mysqli_stmt_close($chk);
+            }
+
+            if ($referenced) {
+                /* Hide from the shop and zero stock, but keep the row + image for order history */
+                $s = mysqli_prepare($conn, "UPDATE tblclothes SET is_deleted=1, stock=0 WHERE product_id=?");
+                if ($s) { mysqli_stmt_bind_param($s,"i",$pid); mysqli_stmt_execute($s); mysqli_stmt_close($s); }
+                header("Location: admin.php?tab=products&msg=product_archived"); exit;
+            }
+
+            /* Not in any order – safe to remove permanently, including the image file */
             $imgQ = mysqli_query($conn, "SELECT image FROM tblclothes WHERE product_id=$pid");
             if ($imgQ) {
                 $imgRow = mysqli_fetch_assoc($imgQ);
@@ -251,12 +292,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["seller_action"])) {
 
 /* Users (always needed for stats) */
 $filter = $_GET["filter"] ?? "all";
-if (!in_array($filter, ["all","pending","active"], true)) $filter = "all";
-$statsQ = mysqli_query($conn, "SELECT COUNT(*) AS total, SUM(status='active') AS active, SUM(status<>'active' OR status IS NULL) AS pending FROM tblUser");
-$stats  = mysqli_fetch_assoc($statsQ) ?: ["total"=>0,"active"=>0,"pending"=>0];
+if (!in_array($filter, ["all","pending","active","frozen"], true)) $filter = "all";
+$statsQ = mysqli_query($conn, "SELECT COUNT(*) AS total, SUM(status='active') AS active, SUM(status='frozen') AS frozen, SUM((status<>'active' AND status<>'frozen') OR status IS NULL) AS pending FROM tblUser");
+$stats  = mysqli_fetch_assoc($statsQ) ?: ["total"=>0,"active"=>0,"pending"=>0,"frozen"=>0];
 
-$where = $filter === "pending" ? " WHERE status<>'active' OR status IS NULL"
-       : ($filter === "active" ? " WHERE status='active'" : "");
+$where = $filter === "pending" ? " WHERE (status<>'active' AND status<>'frozen') OR status IS NULL"
+       : ($filter === "active" ? " WHERE status='active'"
+       : ($filter === "frozen" ? " WHERE status='frozen'" : ""));
 $users = [];
 $uResult = mysqli_query($conn, "SELECT user_id,name,email,username,status FROM tblUser{$where} ORDER BY user_id DESC");
 if ($uResult) while ($r = mysqli_fetch_assoc($uResult)) $users[] = $r;
@@ -268,6 +310,7 @@ $pResult = mysqli_query($conn,
             COALESCE(s.brand_name,'Admin') AS seller_name
      FROM tblclothes p
      LEFT JOIN tblseller s ON p.seller_id = s.seller_id
+     WHERE p.is_deleted = 0
      ORDER BY p.created_at DESC"
 );
 if ($pResult) while ($r = mysqli_fetch_assoc($pResult)) $products[] = $r;
@@ -302,10 +345,13 @@ $msgMap = [
     "user_updated"    => "User updated successfully.",
     "user_deleted"    => "User deleted successfully.",
     "user_verified"   => "User verified and can now log in.",
-    "user_has_orders" => "Cannot delete user – they have existing orders.",
+    "user_has_orders" => "Cannot delete user – they have existing orders. Freeze the account instead.",
+    "user_frozen"     => "Account frozen – the user can no longer log in.",
+    "user_unfrozen"   => "Account reactivated – the user can log in again.",
     "product_added"  => "Product added successfully.",
     "product_updated"=> "Product updated successfully.",
     "product_deleted"=> "Product deleted successfully.",
+    "product_archived"=> "Product hidden from the shop (kept for existing order history).",
     "seller_updated" => "Seller status updated.",
 ];
 $flash = $msgMap[$_GET["msg"] ?? ""] ?? "";
@@ -365,11 +411,14 @@ mysqli_close($conn);
     .status.active{background:#e6f4f0;color:#1b6f4e;border-color:#c3dfd5}
     .status.approved{background:#e6f4f0;color:#1b6f4e;border-color:#c3dfd5}
     .status.rejected{background:#fdecea;color:#9b2a2a;border-color:#f5b7b7}
+    .status.frozen{background:#eef1f6;color:#3d5a80;border-color:#cdd7e6}
     .btn{display:inline-flex;align-items:center;gap:6px;border:none;border-radius:30px;padding:7px 12px;font-size:.75rem;font-weight:700;cursor:pointer;transition:.2s}
     .btn-green{background:var(--green);color:#fff}
     .btn-green:hover{background:var(--dark)}
     .btn-rust{background:var(--rust);color:#fff}
     .btn-rust:hover{background:#a4542f}
+    .btn-amber{background:#b9772a;color:#fff}
+    .btn-amber:hover{background:#9c6322}
     .btn-outline{background:transparent;border:1px solid var(--border);color:var(--sec)}
     .btn-outline:hover{background:var(--bg)}
     .empty{padding:1.5rem;color:var(--muted);font-size:.86rem;text-align:center}
@@ -443,6 +492,7 @@ mysqli_close($conn);
           <a class="<?php echo $filter==='all'?'active':''; ?>" href="admin.php?tab=users&filter=all">All</a>
           <a class="<?php echo $filter==='pending'?'active':''; ?>" href="admin.php?tab=users&filter=pending">Pending</a>
           <a class="<?php echo $filter==='active'?'active':''; ?>" href="admin.php?tab=users&filter=active">Active</a>
+          <a class="<?php echo $filter==='frozen'?'active':''; ?>" href="admin.php?tab=users&filter=frozen">Frozen</a>
         </div>
         <!-- Button to open the Add User modal -->
         <button class="btn btn-green" id="btnAddUser"><i class="fas fa-user-plus"></i> Add User</button>
@@ -455,8 +505,13 @@ mysqli_close($conn);
       <thead><tr><th>#</th><th>Name</th><th>Username</th><th>Email</th><th>Status</th><th>Actions</th></tr></thead>
       <tbody>
         <?php foreach ($users as $u):
-          /* Determine if this user's account is currently active */
-          $isActive = (($u["status"] ?? "") === "active");
+          /* Account state drives both the badge and which actions are offered */
+          $uStatus  = $u["status"] ?? "pending";
+          $isActive = ($uStatus === "active");
+          $isFrozen = ($uStatus === "frozen");
+          if ($isActive)      { $badgeClass = "active"; $badgeIcon = "fa-circle-check";    $badgeText = "Active"; }
+          elseif ($isFrozen)  { $badgeClass = "frozen"; $badgeIcon = "fa-ban";             $badgeText = "Frozen"; }
+          else                { $badgeClass = "";       $badgeIcon = "fa-hourglass-half";  $badgeText = "Pending"; }
         ?>
         <tr>
           <td class="muted"><?php echo (int)$u["user_id"]; ?></td>
@@ -464,18 +519,33 @@ mysqli_close($conn);
           <td><?php echo htmlspecialchars($u["username"] ?? ""); ?></td>
           <td><?php echo htmlspecialchars($u["email"] ?? ""); ?></td>
           <td>
-            <!-- Colour-coded status badge: green = active, amber = pending -->
-            <span class="status <?php echo $isActive?'active':''; ?>">
-              <i class="fas <?php echo $isActive?'fa-circle-check':'fa-hourglass-half'; ?>"></i>
-              <?php echo $isActive ? 'Active' : 'Pending'; ?>
+            <!-- Colour-coded status badge: green = active, blue = frozen, amber = pending -->
+            <span class="status <?php echo $badgeClass; ?>">
+              <i class="fas <?php echo $badgeIcon; ?>"></i>
+              <?php echo $badgeText; ?>
             </span>
           </td>
           <td style="white-space:nowrap">
-            <?php if (!$isActive): ?>
+            <?php if (!$isActive && !$isFrozen): ?>
               <!-- Verify button: sets status='active' so the user can log in -->
               <form method="POST" style="display:inline" action="admin.php?tab=users&filter=<?php echo urlencode($filter); ?>">
                 <input type="hidden" name="verify_user_id" value="<?php echo (int)$u["user_id"]; ?>">
                 <button type="submit" class="btn btn-green"><i class="fas fa-check"></i> Verify</button>
+              </form>
+            <?php endif; ?>
+            <?php if ($isFrozen): ?>
+              <!-- Unfreeze: reactivate a suspended account -->
+              <form method="POST" style="display:inline">
+                <input type="hidden" name="user_action" value="unfreeze_user">
+                <input type="hidden" name="user_id" value="<?php echo (int)$u["user_id"]; ?>">
+                <button type="submit" class="btn btn-green"><i class="fas fa-lock-open"></i> Unfreeze</button>
+              </form>
+            <?php elseif ($isActive): ?>
+              <!-- Freeze: suspend an account so it can no longer log in -->
+              <form method="POST" style="display:inline" onsubmit="return confirm('Freeze this account? The user will not be able to log in until reactivated.')">
+                <input type="hidden" name="user_action" value="freeze_user">
+                <input type="hidden" name="user_id" value="<?php echo (int)$u["user_id"]; ?>">
+                <button type="submit" class="btn btn-amber"><i class="fas fa-snowflake"></i> Freeze</button>
               </form>
             <?php endif; ?>
             <!-- Edit user button: opens the Edit User modal pre-filled with this row's data -->
@@ -666,6 +736,7 @@ mysqli_close($conn);
     <select name="ustatus" id="editUserStatus">
       <option value="active">Active – can log in</option>
       <option value="pending">Pending – awaiting verification</option>
+      <option value="frozen">Frozen – suspended, cannot log in</option>
     </select>
     <div class="modal-btns">
       <button type="button" class="btn btn-outline" onclick="closeModal('modalEditUser')">Cancel</button>

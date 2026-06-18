@@ -49,6 +49,7 @@ CREATE TABLE `tblclothes` (
   `image` varchar(255) NOT NULL DEFAULT 'placeholder-clothing.jpg',
   `brand` varchar(100) DEFAULT NULL,
   `stock` int(11) DEFAULT 0,
+  `is_deleted` tinyint(1) NOT NULL DEFAULT 0,
   `created_at` timestamp NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
